@@ -1,52 +1,34 @@
-const Message = require('../models/Message');
+const Message = require('../models/Message'); // Import Message model
 
-/**
- * Get chat history for a specific room
- */
-exports.getChatHistory = async (socket, io, { username, room }) => {
-  socket.join(room);
-
+// Join room handler
+const joinRoomHandler = async (socket, { username, room }) => {
   try {
-    const messageHistory = await Message.find({ room }).sort({ timestamp: 1 });
-    console.log(messageHistory);
-    socket.emit('messageHistory', messageHistory);
+    socket.join(room);
+    console.log(`${username} joined room: ${room}`);
 
-    socket.to(room).emit('message', {
-      username: 'System',
-      message: `${username} has joined the room.`,
-      timestamp: new Date(),
-    });
+    // Send chat history
+    const messageHistory = await Message.find({ room });
+    socket.emit('messageHistory', { messageHistory });
   } catch (error) {
-    console.error('Error fetching message history:', error);
+    console.error('Error in joinRoomHandler:', error);
   }
 };
 
-/**
- * Send a new message
- */
-exports.sendMessage = async (io, { username, room, message }) => {
-  const newMessage = new Message({ room, username, message });
-
+// Send message handler
+const sendMessageHandler = async (io, { username, room, message }) => {
   try {
+    const newMessage = new Message({ username, room, message });
     await newMessage.save();
-    io.to(room).emit('message', {
-      id: newMessage._id, // Include the ID for edit/delete
-      username,
-      message,
-      timestamp: newMessage.timestamp,
-    });
+
+    io.to(room).emit('message', newMessage);
   } catch (error) {
-    console.error('Error saving message:', error);
+    console.error('Error in sendMessageHandler:', error);
   }
 };
 
-/**
- * Update an existing message
- */
-exports.updateMessage = async (io, { messageId, username, newContent }) => {
+// Update message handler
+const updateMessageHandler = async (io, { messageId, username, newContent }) => {
   try {
-    console.log(username,messageId,newContent);
-
     const message = await Message.findById(messageId);
 
     if (!message) {
@@ -54,41 +36,32 @@ exports.updateMessage = async (io, { messageId, username, newContent }) => {
       return;
     }
 
-    // Check if the user is the author of the message
     if (message.username !== username) {
       console.error('Unauthorized: Only the author can update this message.');
       return;
     }
 
-    // Check if the message is within the 10-minute edit window
     const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
     if (message.timestamp < tenMinutesAgo) {
-      console.error('Edit window expired: Messages can only be edited within 10 minutes.');
+      console.error('Edit window expired.');
       return;
     }
 
-    // Update the message content
     message.message = newContent;
     await message.save();
-    console.log(message,typeof message.room);
 
     io.to(message.room).emit('messageUpdated', {
-        messageId: messageId.toString(), // Convert MongoDB ObjectId to string
-        newMessage: message.message,
-        timestamp: message.timestamp,
-      });
-      
+      messageId: message._id.toString(),
+      newMessage: message.message,
+    });
   } catch (error) {
     console.error('Error updating message:', error);
   }
 };
 
-/**
- * Delete a message
- */
-exports.deleteMessage = async (io, { messageId, username, isAdmin }) => {
+// Delete message handler
+const deleteMessageHandler = async (io, { messageId, username, isAdmin }) => {
   try {
-    console.log(username,messageId,isAdmin);
     const message = await Message.findById(messageId);
 
     if (!message) {
@@ -96,24 +69,22 @@ exports.deleteMessage = async (io, { messageId, username, isAdmin }) => {
       return;
     }
 
-    // Allow deletion only if the user is the author or an admin
     if (message.username !== username && !isAdmin) {
       console.error('Unauthorized: Only the author or an admin can delete this message.');
       return;
     }
 
     await Message.findByIdAndDelete(messageId);
-    console.log(message.room,message.id);
-    console.log(typeof message.room)
-    io.to(message.room).emit('messageDeleted', messageId.toString()); // Ensure ID is a string
-} catch (error) {
+
+    io.to(message.room).emit('messageDeleted', messageId);
+  } catch (error) {
     console.error('Error deleting message:', error);
   }
 };
 
-/**
- * Handle user disconnect
- */
-exports.disconnect = () => {
-  console.log('User disconnected.');
+module.exports = {
+  joinRoomHandler,
+  sendMessageHandler,
+  updateMessageHandler,
+  deleteMessageHandler,
 };
