@@ -6,16 +6,13 @@ const cors = require('cors');
 const connectDB = require('./config/db');
 const chatController = require('./controllers/chatController');
 
-// Initialize app and server
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: '*' } });
 
-// Middleware
 app.use(cors());
 app.use(express.json());
 
-// Environment variables
 const PORT = process.env.PORT || 3000;
 
 // Connect to MongoDB
@@ -25,13 +22,13 @@ connectDB();
 io.on('connection', (socket) => {
   console.log('New user connected.');
 
-  socket.on('joinRoom', (data) => chatController.joinRoom(socket, io, data));
+  socket.on('joinRoom', (data) => chatController.getChatHistory(socket, io, data)); // Renamed to getChatHistory
   socket.on('sendMessage', (data) => chatController.sendMessage(io, data));
+  socket.on('updateMessage', (data) => chatController.updateMessage(io, data));
+  socket.on('deleteMessage', (data) => chatController.deleteMessage(io, data));
   socket.on('disconnect', () => chatController.disconnect());
 });
 
-// API Endpoint for health check
 app.get('/', (req, res) => res.send('TalkSpace server is running.'));
 
-// Start server
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));

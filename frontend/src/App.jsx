@@ -1,118 +1,117 @@
 import React, { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
-import dayjs from 'dayjs';
 
-const SERVER_URL ='http://localhost:3000';
-const socket = io(SERVER_URL);
+const socket = io('http://localhost:3000'); // Update as per your backend
 
-function App() {
+export default function App() {
   const [username, setUsername] = useState('');
   const [room, setRoom] = useState('');
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState([]);
-  const [joined, setJoined] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
-    socket.on('messageHistory', (history) => {
-      setMessages(history);
+    socket.on('message', (newMessage) => {
+      setMessages((prevMessages) => [...prevMessages, newMessage]);
     });
 
-    socket.on('message', (msg) => {
-      setMessages((prev) => [...prev, msg]);
+    socket.on('messageHistory', (messageHistory) => {
+      setMessages(messageHistory);
     });
 
-    return () => socket.disconnect();
+    return () => {
+      socket.off('message');
+      socket.off('messageHistory');
+    };
   }, []);
 
-  const joinRoom = () => {
+  const handleJoinRoom = () => {
     if (username && room) {
       socket.emit('joinRoom', { username, room });
-      setJoined(true);
+      setIsLoggedIn(true);
     }
   };
 
-  const sendMessage = () => {
-    if (message) {
+  const handleSendMessage = () => {
+    if (message.trim()) {
       socket.emit('sendMessage', { username, room, message });
       setMessage('');
     }
   };
 
-  return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-      {!joined ? (
-        <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
-          <h2 className="text-2xl font-bold mb-4 text-center">Welcome to TalkSpace</h2>
+  if (!isLoggedIn) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="bg-white p-6 rounded-lg shadow-lg w-80">
+          <h1 className="text-2xl font-bold mb-4 text-center">Join TalkSpace</h1>
           <input
             type="text"
-            className="w-full p-2 mb-4 border border-gray-300 rounded"
-            placeholder="Enter your username"
+            placeholder="Username"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
+            className="w-full mb-3 p-2 border rounded-md"
           />
           <input
             type="text"
-            className="w-full p-2 mb-4 border border-gray-300 rounded"
-            placeholder="Enter a room name"
+            placeholder="Room Name"
             value={room}
             onChange={(e) => setRoom(e.target.value)}
+            className="w-full mb-3 p-2 border rounded-md"
           />
           <button
-            className="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
-            onClick={joinRoom}
+            onClick={handleJoinRoom}
+            className="w-full bg-blue-500 text-white py-2 rounded-md hover:bg-blue-600"
           >
             Join Room
           </button>
         </div>
-      ) : (
-        <div className="bg-white p-4 rounded-lg shadow-lg w-full max-w-lg">
-          <h2 className="text-xl font-semibold mb-4">Room: {room}</h2>
-          <div className="overflow-y-auto h-80 border border-gray-200 rounded mb-4 p-2 bg-gray-50">
-            {messages.map((msg, index) => (
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-screen items-center justify-center bg-gray-100">
+      <div className="bg-white shadow-lg rounded-lg w-full max-w-lg h-[80vh] flex flex-col">
+        <header className="bg-blue-600 text-white p-4 rounded-t-lg">
+          <h1 className="text-lg font-bold text-center">TalkSpace - Room: {room}</h1>
+        </header>
+
+        <main className="flex-grow overflow-y-scroll p-4 bg-gray-50">
+          <div className="flex flex-col gap-4">
+            {messages.map((msg) => (
               <div
-                key={index}
-                className={`mb-2 flex ${
-                  msg.username === username ? 'justify-end' : 'justify-start'
+                key={msg.id}
+                className={`relative max-w-md rounded-lg p-4 ${
+                  msg.username === username
+                    ? 'bg-green-200 self-end text-right'
+                    : 'bg-gray-100 self-start text-left'
                 }`}
               >
-                <div
-                  className={`max-w-xs p-2 rounded-lg ${
-                    msg.username === username
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-gray-200 text-black'
-                  }`}
-                >
-                  <div className="text-sm font-semibold">
-                    {msg.username === username ? 'You' : msg.username}
-                  </div>
-                  <div className="text-sm">{msg.message}</div>
-                  <div className="text-xs text-gray-400 mt-1 text-right">
-                    {dayjs(msg.timestamp).format('MMM D, h:mm A')}
-                  </div>
+                <p className="text-sm font-medium">{msg.message}</p>
+                <div className="text-xs text-gray-500 mt-1">
+                  {new Date(msg.timestamp).toLocaleString()}
                 </div>
               </div>
             ))}
           </div>
-          <div className="flex items-center">
-            <input
-              type="text"
-              className="flex-grow p-2 border border-gray-300 rounded-l"
-              placeholder="Type a message..."
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-            />
-            <button
-              className="bg-blue-500 text-white px-4 rounded-r hover:bg-blue-600"
-              onClick={sendMessage}
-            >
-              Send
-            </button>
-          </div>
-        </div>
-      )}
+        </main>
+
+        <footer className="bg-white p-4 flex gap-2 rounded-b-lg">
+          <input
+            type="text"
+            placeholder="Type a message..."
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            className="flex-grow p-2 border rounded-md"
+          />
+          <button
+            onClick={handleSendMessage}
+            className="bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600"
+          >
+            Send
+          </button>
+        </footer>
+      </div>
     </div>
   );
 }
-
-export default App;
