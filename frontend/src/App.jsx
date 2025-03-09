@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
 
-const socket = io('http://localhost:3000'); // Update as per your backend
+const socket = io('http://localhost:3000'); // Backend URL
 
 export default function App() {
   const [username, setUsername] = useState('');
@@ -39,6 +39,13 @@ export default function App() {
     }
   };
 
+  const handleLeaveRoom = () => {
+    socket.emit('leaveRoom', { username, room });
+    setRoom('');
+    setMessages([]);
+    setIsLoggedIn(false);
+  };
+
   if (!isLoggedIn) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -72,8 +79,14 @@ export default function App() {
   return (
     <div className="flex h-screen items-center justify-center bg-gray-100">
       <div className="bg-white shadow-lg rounded-lg w-full max-w-lg h-[80vh] flex flex-col">
-        <header className="bg-blue-600 text-white p-4 rounded-t-lg">
-          <h1 className="text-lg font-bold text-center">TalkSpace - Room: {room}</h1>
+        <header className="bg-blue-600 text-white p-4 rounded-t-lg flex justify-between items-center">
+          <h1 className="text-lg font-bold">TalkSpace - Room: {room}</h1>
+          <button
+            onClick={handleLeaveRoom}
+            className="text-sm bg-red-500 py-1 px-3 rounded-md hover:bg-red-600"
+          >
+            Leave
+          </button>
         </header>
 
         <main className="flex-grow overflow-y-scroll p-4 bg-gray-50">

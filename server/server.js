@@ -27,6 +27,15 @@ io.on('connection', (socket) => {
   socket.on('updateMessage', (data) => chatController.updateMessage(io, data));
   socket.on('deleteMessage', (data) => chatController.deleteMessage(io, data));
   socket.on('disconnect', () => chatController.disconnect());
+  socket.on('leaveRoom', ({ username, room }) => {
+    socket.leave(room);
+    io.to(room).emit('message', {
+      username: 'System',
+      message: `${username} has left the room.`,
+      timestamp: new Date(),
+    });
+  });
+  
 });
 
 app.get('/', (req, res) => res.send('TalkSpace server is running.'));
