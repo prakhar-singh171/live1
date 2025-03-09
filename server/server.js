@@ -7,6 +7,7 @@ const {
   sendMessageHandler,
   updateMessageHandler,
   deleteMessageHandler,
+  markMessagesSeenHandler, // Import the new handler
 } = require('./controllers/chatController'); // Importing controllers
 
 const app = express();
@@ -25,28 +26,28 @@ mongoose.connect(process.env.MONGO_URI, {
   useUnifiedTopology: true,
 });
 mongoose.connection.on('connected', () => {
-    console.log('Connected to MongoDB successfully.');
-  });
-  
-  mongoose.connection.on('error', (err) => {
-    console.error('Error connecting to MongoDB:', err);
-  });
-  
+  console.log('Connected to MongoDB successfully.');
+});
+
+mongoose.connection.on('error', (err) => {
+  console.error('Error connecting to MongoDB:', err);
+});
+
 // Socket.IO
 io.on('connection', (socket) => {
-    console.log('A user connected');
-  
-    socket.on('joinRoom', (data) => joinRoomHandler(socket, data));
-    socket.on('sendMessage', (data) => sendMessageHandler(io, data));
-    socket.on('updateMessage', (data) => updateMessageHandler(io, data));
-    socket.on('deleteMessage', (data) => deleteMessageHandler(io, data));
-  
-    socket.on('disconnect', () => {
-      console.log('A user disconnected');
-    });
+  console.log('A user connected');
+
+  socket.on('joinRoom', (data) => joinRoomHandler(socket, data));
+  socket.on('sendMessage', (data) => sendMessageHandler(io, data));
+  socket.on('updateMessage', (data) => updateMessageHandler(io, data));
+  socket.on('deleteMessage', (data) => deleteMessageHandler(io, data));
+  socket.on('mark_seen', (data) => markMessagesSeenHandler(socket, data, io)); // Added handler for marking messages as seen
+
+  socket.on('disconnect', () => {
+    console.log('A user disconnected');
   });
-  
-  // Start server
-  const PORT = 3000;
-  server.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
-  
+});
+
+// Start server
+const PORT = 3000;
+server.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));

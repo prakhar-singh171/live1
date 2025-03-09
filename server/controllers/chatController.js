@@ -82,9 +82,56 @@ const deleteMessageHandler = async (io, { messageId, username, isAdmin }) => {
   }
 };
 
+const markMessageAsSeen = async (socket, { messageId, username }) => {
+    try {
+      const message = await Message.findById(messageId);
+  
+      if (!message) {
+        console.error('Message not found for marking as seen.');
+        return;
+      }
+  
+      if (!message.seenBy.includes(username)) {
+        message.seenBy.push(username);
+        await message.save();
+  
+        // Emit an event to notify others in the room
+        socket.to(message.room).emit('messageSeen', {
+          messageId: message._id.toString(),
+          seenBy: message.seenBy,
+        });
+      }
+    } catch (error) {
+      console.error('Error marking message as seen:', error);
+    }
+  };
+
+
+  const markMessagesSeenHandler = async (socket, data, io) => {
+    const { room, username } = data;
+    try {
+      // Update messages in the room where the user hasn't seen them yet
+      await Message.updateMany(
+        { room, seenBy: { $ne: username } }, // Messages not seen by this user
+        { $addToSet: { seenBy: username } } // Add the user to the seenBy array
+      );
+  
+      // Fetch the updated chat history for the room
+      const updatedChatHistory = await Message.find({ room }).sort({ _id: 1 });
+  
+      // Emit the updated chat history to all clients in the room
+      io.to(room).emit('chat_history', updatedChatHistory);
+    } catch (error) {
+      console.error('Error marking messages as seen:', error);
+      socket.emit('error', { message: 'Error marking messages as seen.' });
+    }
+  };
+
+
 module.exports = {
   joinRoomHandler,
   sendMessageHandler,
   updateMessageHandler,
   deleteMessageHandler,
+  markMessagesSeenHandler,
 };
