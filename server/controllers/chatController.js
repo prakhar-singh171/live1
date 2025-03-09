@@ -8,6 +8,7 @@ exports.getChatHistory = async (socket, io, { username, room }) => {
 
   try {
     const messageHistory = await Message.find({ room }).sort({ timestamp: 1 });
+    console.log(messageHistory);
     socket.emit('messageHistory', messageHistory);
 
     socket.to(room).emit('message', {
@@ -44,6 +45,8 @@ exports.sendMessage = async (io, { username, room, message }) => {
  */
 exports.updateMessage = async (io, { messageId, username, newContent }) => {
   try {
+    console.log(username,messageId,newContent);
+
     const message = await Message.findById(messageId);
 
     if (!message) {
@@ -67,12 +70,14 @@ exports.updateMessage = async (io, { messageId, username, newContent }) => {
     // Update the message content
     message.message = newContent;
     await message.save();
+    console.log(message,typeof message.room);
 
-    io.to(message.room).emit('messageEdited', {
-      id: message._id,
-      message: message.message,
-      timestamp: message.timestamp,
-    });
+    io.to(message.room).emit('messageUpdated', {
+        messageId: messageId.toString(), // Convert MongoDB ObjectId to string
+        newMessage: message.message,
+        timestamp: message.timestamp,
+      });
+      
   } catch (error) {
     console.error('Error updating message:', error);
   }
@@ -83,6 +88,7 @@ exports.updateMessage = async (io, { messageId, username, newContent }) => {
  */
 exports.deleteMessage = async (io, { messageId, username, isAdmin }) => {
   try {
+    console.log(username,messageId,isAdmin);
     const message = await Message.findById(messageId);
 
     if (!message) {
@@ -97,9 +103,10 @@ exports.deleteMessage = async (io, { messageId, username, isAdmin }) => {
     }
 
     await Message.findByIdAndDelete(messageId);
-
-    io.to(message.room).emit('messageDeleted', { id: messageId });
-  } catch (error) {
+    console.log(message.room,message.id);
+    console.log(typeof message.room)
+    io.to(message.room).emit('messageDeleted', messageId.toString()); // Ensure ID is a string
+} catch (error) {
     console.error('Error deleting message:', error);
   }
 };

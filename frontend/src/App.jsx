@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
 
-const socket = io('http://localhost:3000'); // Backend URL
+const socket = io('http://localhost:3000'); // Replace with your backend URL
 
 export default function App() {
   const [username, setUsername] = useState('');
@@ -9,19 +9,37 @@ export default function App() {
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState([]);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [editingMessageId, setEditingMessageId] = useState(null);
+  const [editText, setEditText] = useState('');
 
   useEffect(() => {
     socket.on('message', (newMessage) => {
       setMessages((prevMessages) => [...prevMessages, newMessage]);
     });
 
-    socket.on('messageHistory', (messageHistory) => {
+    socket.on('messageHistory', ({ messageHistory }) => {
       setMessages(messageHistory);
+    });
+
+    socket.on('messageUpdated', ({ messageId, newMessage }) => {
+      setMessages((prevMessages) =>
+        prevMessages.map((msg) =>
+          msg._id === messageId ? { ...msg, message: newMessage } : msg
+        )
+      );
+    });
+
+    socket.on('messageDeleted', (messageId) => {
+      setMessages((prevMessages) =>
+        prevMessages.filter((msg) => msg._id !== messageId)
+      );
     });
 
     return () => {
       socket.off('message');
       socket.off('messageHistory');
+      socket.off('messageUpdated');
+      socket.off('messageDeleted');
     };
   }, []);
 
@@ -44,6 +62,28 @@ export default function App() {
     setRoom('');
     setMessages([]);
     setIsLoggedIn(false);
+  };
+
+  const handleEditMessage = (msg) => {
+    setEditingMessageId(msg._id);
+    setEditText(msg.message);
+  };
+
+  const handleSaveEdit = (messageId) => {
+    if (editText.trim()) {
+      socket.emit('updateMessage', { messageId, username, newContent: editText });
+      setEditingMessageId(null);
+      setEditText('');
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingMessageId(null);
+    setEditText('');
+  };
+
+  const handleDeleteMessage = (messageId) => {
+    socket.emit('deleteMessage', { messageId, username, isAdmin: username === 'admin' });
   };
 
   if (!isLoggedIn) {
@@ -91,21 +131,73 @@ export default function App() {
 
         <main className="flex-grow overflow-y-scroll p-4 bg-gray-50">
           <div className="flex flex-col gap-4">
-            {messages.map((msg) => (
-              <div
-                key={msg.id}
-                className={`relative max-w-md rounded-lg p-4 ${
-                  msg.username === username
-                    ? 'bg-green-200 self-end text-right'
-                    : 'bg-gray-100 self-start text-left'
-                }`}
-              >
-                <p className="text-sm font-medium">{msg.message}</p>
-                <div className="text-xs text-gray-500 mt-1">
-                  {new Date(msg.timestamp).toLocaleString()}
+            {messages.map((msg) => {
+              const isAuthor = msg.username === username;
+              const canEdit =
+                isAuthor &&
+                new Date() - new Date(msg.timestamp) <= 10 * 60 * 1000; // 10-minute edit window
+              const canDelete = isAuthor || username === 'admin';
+
+              return (
+                <div
+                  key={msg._id}
+                  className={`relative max-w-md rounded-lg p-4 ${
+                    isAuthor
+                      ? 'bg-green-200 self-end text-right'
+                      : 'bg-gray-100 self-start text-left'
+                  }`}
+                >
+                  {editingMessageId === msg._id ? (
+                    <>
+                      <textarea
+                        value={editText}
+                        onChange={(e) => setEditText(e.target.value)}
+                        className="w-full p-2 border rounded-md"
+                      />
+                      <div className="flex justify-end gap-2 mt-2">
+                        <button
+                          onClick={() => handleSaveEdit(msg._id)}
+                          className="text-xs bg-green-500 py-1 px-2 rounded-md text-white hover:bg-green-600"
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={handleCancelEdit}
+                          className="text-xs bg-gray-500 py-1 px-2 rounded-md text-white hover:bg-gray-600"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm font-medium">{msg.message}</p>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {new Date(msg.timestamp).toLocaleString()}
+                      </div>
+                      <div className="flex justify-end gap-2 mt-2">
+                        {canEdit && (
+                          <button
+                            onClick={() => handleEditMessage(msg)}
+                            className="text-xs bg-yellow-500 py-1 px-2 rounded-md text-white hover:bg-yellow-600"
+                          >
+                            Edit
+                          </button>
+                        )}
+                        {canDelete && (
+                          <button
+                            onClick={() => handleDeleteMessage(msg._id)}
+                            className="text-xs bg-red-500 py-1 px-2 rounded-md text-white hover:bg-red-600"
+                          >
+                            Delete
+                          </button>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </main>
 
