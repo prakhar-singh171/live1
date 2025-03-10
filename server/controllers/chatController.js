@@ -20,9 +20,10 @@ const joinRoomHandler = async (socket, { username, room }) => {
 const sendMessageHandler = async (io, { username, room, message }) => {
   try {
     const newMessage = new Message({ username, room, message });
-    await newMessage.save();
+    const savedMessage=await newMessage.save();
 
     io.to(room).emit('message', newMessage);
+    return savedMessage;
   } catch (error) {
     console.error('Error in sendMessageHandler:', error);
   }

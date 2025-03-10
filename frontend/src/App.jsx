@@ -59,6 +59,8 @@ export default function App() {
 
   const handleBackToChat = () => {
     navigate("/");
+    socket.emit("joinRoom", { username, room });
+
   };
 
   if (!isLoggedIn) {
@@ -100,6 +102,7 @@ export default function App() {
           path="/"
           element={
             <ChatPage
+            key={room + username}
               socket={socket}
               room={room}
               username={username}

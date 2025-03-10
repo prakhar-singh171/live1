@@ -71,6 +71,12 @@ export default function ChatPage({
     }
   }, [messages]);
 
+  useEffect(() => {
+    // Re-emit joinRoom to fetch chat history when ChatPage mounts
+    socket.emit("joinRoom", { username, room });
+  }, [socket, username, room]);
+  
+
   // Send a new message
   const handleSendMessage = () => {
     if (message.trim()) {

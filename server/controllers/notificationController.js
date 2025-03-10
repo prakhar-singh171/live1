@@ -1,23 +1,37 @@
 // backend/controllers/notificationController.js
 const Notification = require("../models/notificationModel.js");
 
-const sendNotification = async (username, message, type = "other") => {
-  try {
-    const notification = new Notification({
-      username,
-      message,
-      type,
-      readStatus: false,
-      timestamp: new Date()
-    });
-    await notification.save();
-    console.log("Notification sent to user:", username);
-    return notification;
-  } catch (error) {
-    console.error("Error sending notification:", error);
-    throw error;
-  }
-};
+const sendNotification = async (recipientUsername, message, type = "other", messageId = null) => {
+    try {
+      // Check if a similar notification already exists for this user
+      const existing = await Notification.findOne({
+        username: recipientUsername,
+        type,
+        messageId,
+      });
+  
+      if (existing) {
+        console.log(`Notification already exists for ${recipientUsername}`);
+        // Optionally update timestamp or readStatus if needed
+        return existing;
+      }
+  
+      const notification = new Notification({
+        username: recipientUsername,
+        message,
+        type,
+        readStatus: false,
+        timestamp: Date.now(),
+        messageId, // You can pass null if not applicable
+      });
+      await notification.save();
+      console.log("Notification sent to user:", recipientUsername);
+      return notification;
+    } catch (error) {
+      console.error("Error sending notification:", error);
+      throw error;
+    }
+  };
 
 const getUserNotifications = async (req, res) => {
   try {

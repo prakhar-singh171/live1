@@ -4,6 +4,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const mongoose = require('mongoose');
 const path = require("path");
+const Notification =require("./models/notificationModel.js")
 require('dotenv').config();
 
 const {
@@ -67,33 +68,38 @@ io.on('connection', (socket) => {
   socket.on('joinRoom', (data) => joinRoomHandler(socket, data));
   socket.on("sendMessage", async (data) => {
     // Data contains { room, username, message }
-    await sendMessageHandler(io, data);
+    const savedMessage = await sendMessageHandler(io, data); // Ensure this returns the saved message with _id
+    if (!savedMessage || !savedMessage._id) {
+      console.error("sendMessageHandler did not return a valid message:", savedMessage);
+      return;
+    }
   
     try {
-      // Fetch all sockets in the room
+      // Get all socket connections in the room
       const socketsInRoom = await io.in(data.room).fetchSockets();
       const notifiedUsernames = new Set();
   
-      socketsInRoom.forEach(async (s) => {
-        const recipient = s.data.username; // assuming you set this in joinRoomHandler
-        // Only notify if:
-        // 1. The recipient is not the sender, and
-        // 2. We haven't already sent a notification to that username.
+      for (const s of socketsInRoom) {
+        const recipient = s.data.username; // Ensure this is set when the user joins
+        // Only send a notification if:
+        // - The recipient is defined
+        // - The recipient is not the sender
+        // - We haven't already notified that recipient
         if (recipient && recipient !== data.username && !notifiedUsernames.has(recipient)) {
           const notification = await sendNotification(
             recipient,
             `${data.username} sent a new message.`,
-            "new_message"
+            "new_message",
+            savedMessage._id // Pass the message id for reference
           );
           s.emit("notification", notification);
           notifiedUsernames.add(recipient);
         }
-      });
+      }
     } catch (error) {
       console.error("Notification error:", error);
     }
   });
-  
 
   socket.on('updateMessage', (data) => updateMessageHandler(io, data));
   socket.on('deleteMessage', (data) => deleteMessageHandler(io, data));
