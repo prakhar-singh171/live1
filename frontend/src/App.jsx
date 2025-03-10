@@ -1,48 +1,40 @@
 import React, { useState, useEffect } from "react";
+import { Routes, Route, Link, useNavigate } from "react-router-dom";
+import PollsPage from "./PollsPage"; // Import PollsPage component
 import { io } from "socket.io-client";
 
 const socket = io("http://localhost:3000"); // Replace with your backend URL
 
 export default function App() {
-    const [room, setRoom] = useState(() => localStorage.getItem("room") || "");
-    const [username, setUsername] = useState(() => localStorage.getItem("username") || "");
+  const [room, setRoom] = useState(() => localStorage.getItem("room") || "");
+  const [username, setUsername] = useState(() => localStorage.getItem("username") || "");
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState([]);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-
   const [editingMessageId, setEditingMessageId] = useState(null);
   const [editText, setEditText] = useState("");
+  const navigate = useNavigate(); // For navigation
 
-  // Emit mark_seen event when joining a roomuseEffect(() => {
-  
-      useEffect(() => {
-        const storedUsername = localStorage.getItem('username');
-        const storedRoom = localStorage.getItem('room');
-      
-        if (storedUsername && storedRoom) {
-          setUsername(storedUsername);
-          setRoom(storedRoom);
-          setIsLoggedIn(true);
-      
-          // Auto-reconnect to the room
-          socket.emit('joinRoom', { username: storedUsername, room: storedRoom });
-        }
-      }, [isLoggedIn]);
-      
-    
+  useEffect(() => {
+    const storedUsername = localStorage.getItem("username");
+    const storedRoom = localStorage.getItem("room");
+
+    if (storedUsername && storedRoom) {
+      setUsername(storedUsername);
+      setRoom(storedRoom);
+      setIsLoggedIn(true);
+
+      socket.emit("joinRoom", { username: storedUsername, room: storedRoom });
+    }
+  }, []);
+
   useEffect(() => {
     if (isLoggedIn) {
       socket.emit("mark_seen", { room, username });
     }
   }, [isLoggedIn, room, username]);
 
-  // Listeners for socket events
   useEffect(() => {
-
-    socket.connect();
-
-    
-
     socket.on("message", (newMessage) => {
       setMessages((prevMessages) => [...prevMessages, newMessage]);
     });
@@ -68,7 +60,6 @@ export default function App() {
     socket.on("messageSeenUpdate", (updatedMessages) => {
       setMessages(updatedMessages);
     });
-    console.log('aaaa',messages);
 
     return () => {
       socket.off("message");
@@ -85,7 +76,6 @@ export default function App() {
       setIsLoggedIn(true);
       localStorage.setItem("room", room);
       localStorage.setItem("username", username);
-     
     }
   };
 
@@ -104,7 +94,6 @@ export default function App() {
     localStorage.removeItem("username");
     setIsLoggedIn(false);
     setUsername("");
-
   };
 
   const handleEditMessage = (msg) => {
@@ -127,6 +116,10 @@ export default function App() {
 
   const handleDeleteMessage = (messageId) => {
     socket.emit("deleteMessage", { messageId, username, isAdmin: username === "admin" });
+  };
+
+  const handleNavigateToPolls = () => {
+    navigate("/polls");
   };
 
   if (!isLoggedIn) {
@@ -160,110 +153,128 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen items-center justify-center bg-gray-100">
-      <div className="bg-white shadow-lg rounded-lg w-full max-w-lg h-[80vh] flex flex-col">
-        <header className="bg-blue-600 text-white p-4 rounded-t-lg flex justify-between items-center">
-          <h1 className="text-lg font-bold">TalkSpace - Room: {room}</h1>
-          <button
-            onClick={handleLeaveRoom}
-            className="text-sm bg-red-500 py-1 px-3 rounded-md hover:bg-red-600"
-          >
-            Leave
-          </button>
-        </header>
-
-        <main className="flex-grow overflow-y-scroll p-4 bg-gray-50">
-  <div className="flex flex-col gap-4">
-    {messages.map((msg) => {
-      const isAuthor = msg.username === username;
-      const canEdit =
-        isAuthor &&
-        new Date() - new Date(msg.timestamp) <= 10 * 60 * 1000; // 10-minute edit window
-      const canDelete = isAuthor || username === 'admin';
-
-      return (
-        <div
-          key={msg._id}
-          className={`relative max-w-md rounded-lg p-4 ${
-            isAuthor
-              ? 'bg-green-200 self-end text-right'
-              : 'bg-gray-100 self-start text-left'
-          }`}
-        >
-          {editingMessageId === msg._id ? (
-            <>
-              <textarea
-                value={editText}
-                onChange={(e) => setEditText(e.target.value)}
-                className="w-full p-2 border rounded-md"
-              />
-              <div className="flex justify-end gap-2 mt-2">
+    <Routes>
+      <Route
+        path="/"
+        element={
+          <div className="flex h-screen items-center justify-center bg-gray-100">
+            <div className="bg-white shadow-lg rounded-lg w-full max-w-lg h-[80vh] flex flex-col">
+              <header className="bg-blue-600 text-white p-4 rounded-t-lg flex justify-between items-center">
+                <h1 className="text-lg font-bold">TalkSpace - Room: {room}</h1>
                 <button
-                  onClick={() => handleSaveEdit(msg._id)}
-                  className="text-xs bg-green-500 py-1 px-2 rounded-md text-white hover:bg-green-600"
+                  onClick={handleLeaveRoom}
+                  className="text-sm bg-red-500 py-1 px-3 rounded-md hover:bg-red-600"
                 >
-                  Save
+                  Leave
+                </button>
+              </header>
+
+              <main className="flex-grow overflow-y-scroll p-4 bg-gray-50">
+                <div className="flex flex-col gap-4">
+                  {messages.map((msg) => {
+                    const isAuthor = msg.username === username;
+                    const canEdit =
+                      isAuthor &&
+                      new Date() - new Date(msg.timestamp) <= 10 * 60 * 1000; // 10-minute edit window
+                    const canDelete = isAuthor || username === "admin";
+
+                    return (
+                      <div
+                        key={msg._id}
+                        className={`relative max-w-md rounded-lg p-4 ${
+                          isAuthor
+                            ? "bg-green-200 self-end text-right"
+                            : "bg-gray-100 self-start text-left"
+                        }`}
+                      >
+                        {editingMessageId === msg._id ? (
+                          <>
+                            <textarea
+                              value={editText}
+                              onChange={(e) => setEditText(e.target.value)}
+                              className="w-full p-2 border rounded-md"
+                            />
+                            <div className="flex justify-end gap-2 mt-2">
+                              <button
+                                onClick={() => handleSaveEdit(msg._id)}
+                                className="text-xs bg-green-500 py-1 px-2 rounded-md text-white hover:bg-green-600"
+                              >
+                                Save
+                              </button>
+                              <button
+                                onClick={handleCancelEdit}
+                                className="text-xs bg-gray-500 py-1 px-2 rounded-md text-white hover:bg-gray-600"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-sm font-medium">{msg.message}</p>
+                            <div className="text-xs text-gray-500 mt-1">
+                              Sent by <strong>{msg.username}</strong> at{" "}
+                              {new Date(msg.timestamp).toLocaleString()}
+                            </div>
+                            <div className="text-xs text-gray-400 mt-1">
+                              Seen by:{" "}
+                              {msg.seenBy && msg.seenBy.length > 0
+                                ? msg.seenBy.join(", ")
+                                : "No one"}
+                            </div>
+                            <div className="flex justify-end gap-2 mt-2">
+                              {canEdit && (
+                                <button
+                                  onClick={() => handleEditMessage(msg)}
+                                  className="text-xs bg-yellow-500 py-1 px-2 rounded-md text-white hover:bg-yellow-600"
+                                >
+                                  Edit
+                                </button>
+                              )}
+                              {canDelete && (
+                                <button
+                                  onClick={() => handleDeleteMessage(msg._id)}
+                                  className="text-xs bg-red-500 py-1 px-2 rounded-md text-white hover:bg-red-600"
+                                >
+                                  Delete
+                                </button>
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </main>
+
+              <footer className="bg-white p-4 flex gap-2 rounded-b-lg">
+                <input
+                  type="text"
+                  placeholder="Type a message..."
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  className="flex-grow p-2 border rounded-md"
+                />
+                <button
+                  onClick={handleSendMessage}
+                  className="bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600"
+                >
+                  Send
                 </button>
                 <button
-                  onClick={handleCancelEdit}
-                  className="text-xs bg-gray-500 py-1 px-2 rounded-md text-white hover:bg-gray-600"
+                  onClick={handleNavigateToPolls}
+                  className="bg-purple-500 text-white py-2 px-4 rounded-md hover:bg-purple-600"
+                  aria-label="Navigate to Polls Page"
                 >
-                  Cancel
+                  Polls
                 </button>
-              </div>
-            </>
-          ) : (
-            <>
-              <p className="text-sm font-medium">{msg.message}</p>
-              <div className="text-xs text-gray-500 mt-1">
-                Sent by <strong>{msg.username}</strong> at{' '}
-                {new Date(msg.timestamp).toLocaleString()}
-              </div>
-              <div className="text-xs text-gray-400 mt-1">
-                Seen by: {msg.seenBy && msg.seenBy.length > 0 ? msg.seenBy.join(', ') : 'No one'}
-              </div>
-              <div className="flex justify-end gap-2 mt-2">
-                {canEdit && (
-                  <button
-                    onClick={() => handleEditMessage(msg)}
-                    className="text-xs bg-yellow-500 py-1 px-2 rounded-md text-white hover:bg-yellow-600"
-                  >
-                    Edit
-                  </button>
-                )}
-                {canDelete && (
-                  <button
-                    onClick={() => handleDeleteMessage(msg._id)}
-                    className="text-xs bg-red-500 py-1 px-2 rounded-md text-white hover:bg-red-600"
-                  >
-                    Delete
-                  </button>
-                )}
-              </div>
-            </>
-          )}
-        </div>
-      );
-    })}
-  </div>
-</main>
-
-        <footer className="bg-white p-4 flex gap-2 rounded-b-lg">
-          <input
-            type="text"
-            placeholder="Type a message..."
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            className="flex-grow p-2 border rounded-md"
-          />
-          <button
-            onClick={handleSendMessage}
-            className="bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600"
-          >
-            Send
-          </button>
-        </footer>
-      </div>
-    </div>
+              </footer>
+            </div>
+          </div>
+        }
+      />
+      <Route path="/polls" element={<PollsPage room={room} username={username} />} />
+    </Routes>
   );
 }
