@@ -4,6 +4,8 @@ const Message = require('../models/Message'); // Import Message model
 const joinRoomHandler = async (socket, { username, room }) => {
   try {
     socket.join(room);
+    socket.data.username = username;
+
     console.log(`${username} joined room: ${room}`);
 
     // Send chat history

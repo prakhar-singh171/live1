@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -6,13 +6,12 @@ import "react-toastify/dist/ReactToastify.css";
 export default function NotificationsPanel({ username, socket }) {
   const [notifications, setNotifications] = useState([]);
 
-  // Fetch notifications for the user on mount (or when username changes)
+  // Fetch notifications from REST API on mount
   useEffect(() => {
     if (!username) return;
     const fetchNotifications = async () => {
       try {
-        const response = await axios.get(`http://localhost:3000/api/notifications/${username}`)
-
+        const response = await axios.get(`http://localhost:3000/api/notifications/${username}`);
         setNotifications(response.data);
         console.log("Fetched notifications:", response.data);
       } catch (error) {
@@ -22,53 +21,44 @@ export default function NotificationsPanel({ username, socket }) {
     fetchNotifications();
   }, [username]);
 
-  // Listen for real-time notifications via Socket.IO
+  // Listen for real-time notifications
   useEffect(() => {
     if (!socket) return;
-
-    const handleRealTimeNotification = (notification) => {
+    const handleNotification = (notification) => {
       console.log("Received real-time notification:", notification);
       toast.info(notification.message, {
         position: "top-right",
         autoClose: 5000,
       });
-      // Optionally, prepend the new notification to the list
       setNotifications((prev) => [notification, ...prev]);
     };
 
-    socket.on("notification", handleRealTimeNotification);
-
+    socket.on("notification", handleNotification);
     return () => {
-      socket.off("notification", handleRealTimeNotification);
+      socket.off("notification", handleNotification);
     };
   }, [socket]);
 
-  // Mark a notification as read by calling the REST endpoint
   const handleMarkAsRead = async (id) => {
     try {
-      const response = await axios.put(`/api/notifications/${id}/read`, {
-        readStatus: true,
-      });
+      await axios.put(`http://localhost:3000/api/notifications/${id}/read`, { readStatus: true });
       setNotifications((prev) =>
-        prev.map((notif) =>
-          notif._id === id ? { ...notif, readStatus: true } : notif
-        )
+        prev.map((notif) => (notif._id === id ? { ...notif, readStatus: true } : notif))
       );
       toast.success("Notification marked as read", { autoClose: 3000 });
     } catch (error) {
-      console.error("Error marking notification as read:", error);
+      console.error("Error marking notification as read:", error.response?.data || error.message);
       toast.error("Error marking notification as read", { autoClose: 3000 });
     }
   };
 
-  // Delete a notification by calling the REST endpoint
   const handleDeleteNotification = async (id) => {
     try {
-      await axios.delete(`/api/notifications/${id}`);
+      await axios.delete(`http://localhost:3000/api/notifications/${id}`);
       setNotifications((prev) => prev.filter((notif) => notif._id !== id));
       toast.success("Notification deleted", { autoClose: 3000 });
     } catch (error) {
-      console.error("Error deleting notification:", error);
+      console.error("Error deleting notification:", error.response?.data || error.message);
       toast.error("Error deleting notification", { autoClose: 3000 });
     }
   };
@@ -83,10 +73,7 @@ export default function NotificationsPanel({ username, socket }) {
           <div key={notif._id} className="border p-4 rounded mb-2">
             <p className="text-sm">{notif.message}</p>
             <p className="text-xs text-gray-500">
-              {new Date(notif.timestamp).toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
+              {new Date(notif.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
             </p>
             <div className="mt-2 flex gap-2">
               {!notif.readStatus && (
