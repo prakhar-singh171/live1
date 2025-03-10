@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 
 export default function PollsPage({ room, username, onBackToChat, socket }) {
   const [polls, setPolls] = useState([]);
+  const [version, setVersion] = useState(0);
   const [pollQuestion, setPollQuestion] = useState("");
   const [pollOptions, setPollOptions] = useState(["", ""]);
   const [isCreatingPoll, setIsCreatingPoll] = useState(false);
@@ -45,7 +46,7 @@ export default function PollsPage({ room, username, onBackToChat, socket }) {
   };
 
   const handleVote = (pollId, optionIndex) => {
-    socket.emit("votePoll", { pollId, username, optionIndex });
+    socket.emit("votePoll", { pollId, username, optionIndex,room });
   };
 
   const handleAddOption = () => {

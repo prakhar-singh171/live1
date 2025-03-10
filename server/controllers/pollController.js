@@ -58,6 +58,7 @@ exports.getPollsForRoom = async (socket, { room }) => {
 // Handle voting
 exports.votePoll = async (io, data) => {
   try {
+    console.log(data,'aaaaaaaa');
     const { pollId, optionIndex, username, room } = data;
 
     const poll = await QuickPoll.findById(pollId);
@@ -81,9 +82,10 @@ exports.votePoll = async (io, data) => {
 
     // Emit the updated poll to all users in the room
     const updatedPolls = await QuickPoll.find({ room }).sort({ createdAt: -1 });
-    io.to(room).emit("polls", updatedPolls);
-    io.to(room).emit("pollCreated", newPoll); // Optional: Emit the new poll for immediate UI update
 
+    io.to(room).emit("polls", updatedPolls);
+     // Optional: Emit the new poll for immediate UI update
+    console.log(room,updatedPolls,'aaaaa');
   } catch (error) {
     console.error("Error handling vote:", error);
   }
