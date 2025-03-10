@@ -16,6 +16,7 @@ const {
   getPollsForRoom,
   votePoll,
 } = require("./controllers/pollController");
+const { sendNotification } = require("./controllers/notificationController.js");
 
 const app = express();
 const server = http.createServer(app);
@@ -51,7 +52,25 @@ io.on('connection', (socket) => {
 
   // Handlers for chat
   socket.on('joinRoom', (data) => joinRoomHandler(socket, data));
-  socket.on('sendMessage', (data) => sendMessageHandler(io, data));
+
+  socket.on("sendMessage", async (data) => {
+    // Data contains { room, username, message }
+    await sendMessageHandler(io, data);
+
+    // Send a notification for the new message.
+    // Adjust data accordingly – here we use username as the identifier.
+    try {
+      const notification = await sendNotification(
+        data.username,
+        `${data.username} sent a new message.`,
+        "new_message"
+      );
+      io.to(data.room).emit("notification", notification);
+    } catch (error) {
+      console.error("Notification error:", error);
+    }
+  });
+
   socket.on('updateMessage', (data) => updateMessageHandler(io, data));
   socket.on('deleteMessage', (data) => deleteMessageHandler(io, data));
   socket.on('mark_seen', (data) => markMessagesSeenHandler(socket, data, io));
