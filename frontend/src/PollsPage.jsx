@@ -1,61 +1,35 @@
 import React, { useState, useEffect } from "react";
-import { io } from "socket.io-client";
 
-const socket = io("http://localhost:3000"); // Replace with your backend URL
-
-export default function PollsPage({ room, username, onBackToChat }) {
+export default function PollsPage({ room, username, onBackToChat, socket }) {
   const [polls, setPolls] = useState([]);
   const [pollQuestion, setPollQuestion] = useState("");
   const [pollOptions, setPollOptions] = useState(["", ""]);
   const [isCreatingPoll, setIsCreatingPoll] = useState(false);
 
   useEffect(() => {
-    if (room && username) {
-      socket.emit("getPolls", { room });
-  
-      socket.on("polls", (receivedPolls) => {
-        setPolls(receivedPolls);
-      });
-  
-      socket.on("pollUpdated", (updatedPoll) => {
-        setPolls((prevPolls) =>
-          prevPolls.map((poll) =>
-            poll._id === updatedPoll._id ? updatedPoll : poll
-          )
-        );
-      });
-  
-      return () => {
-        socket.off("polls");
-        socket.off("pollUpdated");
-      };
-    }
-  }, [room, username]);
+    if (!socket.connected) socket.connect();
+    console.log("Joining room for polls:", room);
 
-  useEffect(() => {
-  if (room && username) {
+    // Fetch initial polls for the room
     socket.emit("getPolls", { room });
 
-    socket.on("polls", (receivedPolls) => {
-      setPolls(receivedPolls);
-    });
-
-    socket.on("pollUpdated", (updatedPoll) => {
-      setPolls((prevPolls) =>
-        prevPolls.map((poll) =>
-          poll._id === updatedPoll._id ? updatedPoll : poll
-        )
+    // Define handler for receiving updated polls
+    const handlePolls = (receivedPolls) => {
+      console.log("Received updated polls:", receivedPolls);
+      const sortedPolls = [...receivedPolls].sort(
+        (a, b) => new Date(b.timestamp) - new Date(a.timestamp)
       );
-    });
+      setPolls(sortedPolls);
+    };
+
+    socket.on("polls", handlePolls);
 
     return () => {
-      socket.off("polls");
-      socket.off("pollUpdated");
+      console.log("Cleaning up 'polls' listener.");
+      socket.off("polls", handlePolls);
     };
-  }
-}, [room, username]);
+  }, [room, socket]);
 
-  
   const handleCreatePoll = () => {
     if (pollQuestion.trim() && pollOptions.every((opt) => opt.trim())) {
       socket.emit("createPoll", {
@@ -70,17 +44,6 @@ export default function PollsPage({ room, username, onBackToChat }) {
     }
   };
 
-  useEffect(() => {
-    socket.on("pollCreated", (newPoll) => {
-      setPolls((prevPolls) => [...prevPolls, newPoll]);
-    });
-  
-    return () => {
-      socket.off("pollCreated");
-    };
-  }, []);
-
-  
   const handleVote = (pollId, optionIndex) => {
     socket.emit("votePoll", { pollId, username, optionIndex });
   };
@@ -107,7 +70,8 @@ export default function PollsPage({ room, username, onBackToChat }) {
         </button>
       </header>
 
-      <main className="w-full max-w-2xl bg-white shadow-md rounded-lg p-4">
+      {/* Use the version as key to force re-mount on updates */}
+      <main key={version} className="w-full max-w-2xl bg-white shadow-md rounded-lg p-4">
         {isCreatingPoll ? (
           <div className="mb-6">
             <h2 className="text-lg font-bold mb-2">Create a New Poll</h2>
@@ -164,10 +128,7 @@ export default function PollsPage({ room, username, onBackToChat }) {
                 </p>
                 <div className="mt-4 space-y-2">
                   {poll.options.map((option, index) => (
-                    <div
-                      key={index}
-                      className="flex justify-between items-center"
-                    >
+                    <div key={index} className="flex justify-between items-center">
                       <span>{option.text}</span>
                       <div className="flex items-center gap-2">
                         <span className="text-sm text-gray-500">

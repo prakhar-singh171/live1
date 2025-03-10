@@ -274,7 +274,7 @@ export default function App() {
           </div>
         }
       />
-      <Route path="/polls" element={<PollsPage room={room} username={username} />} />
+      <Route path="/polls" element={<PollsPage room={room} username={username} socket={socket} />} />
     </Routes>
   );
 }
