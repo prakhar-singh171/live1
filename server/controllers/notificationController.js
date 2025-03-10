@@ -1,25 +1,24 @@
 // backend/controllers/notificationController.js
 const Notification = require("../models/notificationModel.js");
 
-const sendNotification = async (recipientUsername, message, type = "other") => {
-    try {
-      const notification = new Notification({
-        username: recipientUsername,
-        message,
-        type,
-        readStatus: false,
-        deleted: false,
-        timestamp: new Date()
-      });
-      await notification.save();
-      console.log("Notification sent to user:", recipientUsername);
-      return notification;
-    } catch (error) {
-      console.error("Error sending notification:", error);
-      throw error;
-    }
-  };
-  
+const sendNotification = async (username, message, type = "other") => {
+  try {
+    const notification = new Notification({
+      username,
+      message,
+      type,
+      readStatus: false,
+      timestamp: new Date()
+    });
+    await notification.save();
+    console.log("Notification sent to user:", username);
+    return notification;
+  } catch (error) {
+    console.error("Error sending notification:", error);
+    throw error;
+  }
+};
+
 const getUserNotifications = async (req, res) => {
   try {
     const { username } = req.params;
@@ -36,7 +35,6 @@ const getUserNotifications = async (req, res) => {
 
 const markNotificationAsRead = async (req, res) => {
   try {
-    console.log(req.params);
     const { id } = req.params;
     const { readStatus } = req.body;
     const notification = await Notification.findByIdAndUpdate(id, { readStatus }, { new: true });
@@ -65,9 +63,22 @@ const deleteNotification = async (req, res) => {
   }
 };
 
+// New controller: Delete all notifications for a specific user
+const deleteAllNotificationsForUser = async (req, res) => {
+  try {
+    const { username } = req.params;
+    const result = await Notification.deleteMany({ username });
+    res.status(200).json({ message: "All notifications deleted successfully.", result });
+  } catch (error) {
+    console.error("Error deleting all notifications:", error);
+    res.status(500).json({ message: "Error deleting all notifications", error });
+  }
+};
+
 module.exports = {
   sendNotification,
   getUserNotifications,
   markNotificationAsRead,
   deleteNotification,
+  deleteAllNotificationsForUser,
 };

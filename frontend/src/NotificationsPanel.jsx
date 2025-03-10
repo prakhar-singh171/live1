@@ -1,3 +1,4 @@
+// frontend/src/NotificationsPanel.jsx
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
@@ -63,9 +64,31 @@ export default function NotificationsPanel({ username, socket }) {
     }
   };
 
+  // New function: Delete all notifications for the current user
+  const handleDeleteAll = async () => {
+    try {
+      await axios.delete(`http://localhost:3000/api/notifications/user/${username}`);
+      setNotifications([]);
+      toast.success("All notifications deleted", { autoClose: 3000 });
+    } catch (error) {
+      console.error("Error deleting all notifications:", error.response?.data || error.message);
+      toast.error("Error deleting all notifications", { autoClose: 3000 });
+    }
+  };
+
   return (
     <div className="p-4 max-w-md mx-auto bg-gray-50 rounded shadow my-4">
-      <h2 className="text-2xl font-bold mb-4">Your Notifications</h2>
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-2xl font-bold">Your Notifications</h2>
+        {notifications.length > 0 && (
+          <button
+            onClick={handleDeleteAll}
+            className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 text-xs"
+          >
+            Delete All
+          </button>
+        )}
+      </div>
       {notifications.length === 0 ? (
         <p className="text-gray-500">No notifications available.</p>
       ) : (
@@ -73,7 +96,10 @@ export default function NotificationsPanel({ username, socket }) {
           <div key={notif._id} className="border p-4 rounded mb-2">
             <p className="text-sm">{notif.message}</p>
             <p className="text-xs text-gray-500">
-              {new Date(notif.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+              {new Date(notif.timestamp).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
             </p>
             <div className="mt-2 flex gap-2">
               {!notif.readStatus && (
