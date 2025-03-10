@@ -24,8 +24,8 @@ export default function ChatPage({
 
     // Listener for full chat history (e.g., on join)
     const handleChatHistory = (history) => {
-      console.log("Received chat history:", history);
-      setMessages(history);
+      console.log("Received chat history:", history.messageHistory || []);
+      setMessages(history.messageHistory);
     };
 
     // Listener for message updates (editing)
@@ -51,14 +51,14 @@ export default function ChatPage({
     };
 
     socket.on("message", handleReceiveMessage);
-    socket.on("chat_history", handleChatHistory);
+    socket.on("messageHistory", handleChatHistory);
     socket.on("messageUpdated", handleMessageUpdated);
     socket.on("messageDeleted", handleMessageDeleted);
     socket.on("messageSeenUpdate", handleMessageSeenUpdate);
 
     return () => {
       socket.off("message", handleReceiveMessage);
-      socket.off("chat_history", handleChatHistory);
+      socket.off("messageHistory", handleChatHistory);
       socket.off("messageUpdated", handleMessageUpdated);
       socket.off("messageDeleted", handleMessageDeleted);
       socket.off("messageSeenUpdate", handleMessageSeenUpdate);
