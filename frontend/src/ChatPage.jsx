@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 
 export default function ChatPage({
   socket,
@@ -11,6 +11,8 @@ export default function ChatPage({
   const [messages, setMessages] = useState([]);
   const [editingMessageId, setEditingMessageId] = useState(null);
   const [editText, setEditText] = useState("");
+  const chatEndRef = useRef(null);
+
 
   // Set up Socket.IO listeners
   useEffect(() => {
@@ -63,6 +65,12 @@ export default function ChatPage({
     };
   }, [socket]);
 
+  useEffect(() => {
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages]);
+
   // Send a new message
   const handleSendMessage = () => {
     if (message.trim()) {
@@ -96,8 +104,12 @@ export default function ChatPage({
   };
 
   return (
-    <div className="flex h-screen items-center justify-center bg-gray-100">
-      <div className="bg-white shadow-lg rounded-lg w-full max-w-lg h-[80vh] flex flex-col">
+    <div className="flex h-screen bg-gray-100">
+      {/* Filler to take up remaining space on the left */}
+      <div className="flex-grow"></div>
+      
+      {/* Chat container occupies 1/4th of the screen width and full height */}
+      <div className="bg-white shadow-lg rounded-lg w-1/4 h-screen flex flex-col">
         <header className="bg-blue-600 text-white p-4 rounded-t-lg flex justify-between items-center">
           <h1 className="text-lg font-bold">TalkSpace - Room: {room}</h1>
           <button
@@ -107,7 +119,7 @@ export default function ChatPage({
             Leave
           </button>
         </header>
-
+  
         <main className="flex-grow overflow-y-scroll p-4 bg-gray-50">
           <div className="flex flex-col gap-4">
             {messages.map((msg) => {
@@ -116,6 +128,7 @@ export default function ChatPage({
                 isAuthor &&
                 new Date() - new Date(msg.timestamp) <= 10 * 60 * 1000; // 10-minute edit window
               const canDelete = isAuthor || username === "admin";
+  
               return (
                 <div
                   key={msg._id}
@@ -183,9 +196,11 @@ export default function ChatPage({
                 </div>
               );
             })}
+             <div ref={chatEndRef}></div>
+
           </div>
         </main>
-
+  
         <footer className="bg-white p-4 flex gap-2 rounded-b-lg">
           <input
             type="text"
@@ -211,4 +226,5 @@ export default function ChatPage({
       </div>
     </div>
   );
+  
 }
