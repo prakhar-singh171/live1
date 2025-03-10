@@ -122,6 +122,10 @@ export default function App() {
     navigate("/polls");
   };
 
+  const handleBackToChat = () => {
+    navigate("/");
+  };
+
   if (!isLoggedIn) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -274,7 +278,7 @@ export default function App() {
           </div>
         }
       />
-      <Route path="/polls" element={<PollsPage room={room} username={username} socket={socket} />} />
+      <Route path="/polls" element={<PollsPage room={room} username={username} socket={socket} onBackToChat={handleBackToChat}/>} />
     </Routes>
   );
 }
