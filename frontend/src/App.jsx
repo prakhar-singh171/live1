@@ -6,8 +6,9 @@ import NotificationsPanel from "./NotificationsPanel";
 import { io } from "socket.io-client";
 
 // Create a single socket instance
-const socket = io("http://localhost:3000");
-
+const socket = io("http://localhost:3000", {
+  transports: ["websocket", "polling"], // Specify transports explicitly
+});
 export default function App() {
   const [room, setRoom] = useState(() => localStorage.getItem("room") || "");
   const [username, setUsername] = useState(() => localStorage.getItem("username") || "");
@@ -95,7 +96,7 @@ export default function App() {
   return (
     <>
       {/* NotificationsPanel is mounted at the top level to listen for notifications */}
-      <NotificationsPanel username={username} socket={socket} />
+      <NotificationsPanel username={username} socket={socket} room={room}/>
       <Routes>
         <Route
           path="/"

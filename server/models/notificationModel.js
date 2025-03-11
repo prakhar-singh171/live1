@@ -7,6 +7,7 @@ const NotificationSchema = new mongoose.Schema({
   readStatus: { type: Boolean, default: false },
   deleted: { type: Boolean, default: false },
   timestamp: { type: Date, default: Date.now },
+  room: { type: String, required: true },
   messageId: { type: mongoose.Schema.Types.ObjectId, ref: "Message" } // Direct reference to Message model
 });
 

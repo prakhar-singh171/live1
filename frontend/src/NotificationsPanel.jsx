@@ -1,4 +1,3 @@
-// frontend/src/NotificationsPanel.jsx
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
@@ -7,11 +6,13 @@ import "react-toastify/dist/ReactToastify.css";
 export default function NotificationsPanel({ username, socket }) {
   const [notifications, setNotifications] = useState([]);
 
-  // Fetch notifications from REST API on mount
+  // Fetch all notifications for the user from the backend
   useEffect(() => {
     if (!username) return;
+
     const fetchNotifications = async () => {
       try {
+        console.log(username);
         const response = await axios.get(`http://localhost:3000/api/notifications/${username}`);
         setNotifications(response.data);
         console.log("Fetched notifications:", response.data);
@@ -19,12 +20,14 @@ export default function NotificationsPanel({ username, socket }) {
         console.error("Error fetching notifications:", error);
       }
     };
+
     fetchNotifications();
   }, [username]);
 
-  // Listen for real-time notifications
+  // Listen for real-time notifications for all rooms
   useEffect(() => {
     if (!socket) return;
+
     const handleNotification = (notification) => {
       console.log("Received real-time notification:", notification);
       toast.info(notification.message, {
@@ -34,7 +37,9 @@ export default function NotificationsPanel({ username, socket }) {
       setNotifications((prev) => [notification, ...prev]);
     };
 
+    // Listen to the `notification` event for all rooms
     socket.on("notification", handleNotification);
+
     return () => {
       socket.off("notification", handleNotification);
     };
@@ -48,7 +53,7 @@ export default function NotificationsPanel({ username, socket }) {
       );
       toast.success("Notification marked as read", { autoClose: 3000 });
     } catch (error) {
-      console.error("Error marking notification as read:", error.response?.data || error.message);
+      console.error("Error marking notification as read:", error);
       toast.error("Error marking notification as read", { autoClose: 3000 });
     }
   };
@@ -59,19 +64,18 @@ export default function NotificationsPanel({ username, socket }) {
       setNotifications((prev) => prev.filter((notif) => notif._id !== id));
       toast.success("Notification deleted", { autoClose: 3000 });
     } catch (error) {
-      console.error("Error deleting notification:", error.response?.data || error.message);
+      console.error("Error deleting notification:", error);
       toast.error("Error deleting notification", { autoClose: 3000 });
     }
   };
 
-  // New function: Delete all notifications for the current user
   const handleDeleteAll = async () => {
     try {
       await axios.delete(`http://localhost:3000/api/notifications/user/${username}`);
       setNotifications([]);
       toast.success("All notifications deleted", { autoClose: 3000 });
     } catch (error) {
-      console.error("Error deleting all notifications:", error.response?.data || error.message);
+      console.error("Error deleting all notifications:", error);
       toast.error("Error deleting all notifications", { autoClose: 3000 });
     }
   };
@@ -96,9 +100,13 @@ export default function NotificationsPanel({ username, socket }) {
           <div key={notif._id} className="border p-4 rounded mb-2">
             <p className="text-sm">{notif.message}</p>
             <p className="text-xs text-gray-500">
-              {new Date(notif.timestamp).toLocaleTimeString([], {
+              Room: <strong>{notif.room}</strong> |{" "}
+              {new Date(notif.timestamp).toLocaleString("en-US", {
                 hour: "2-digit",
                 minute: "2-digit",
+                day: "numeric",
+                month: "short",
+                year: "numeric",
               })}
             </p>
             <div className="mt-2 flex gap-2">

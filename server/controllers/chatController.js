@@ -64,41 +64,33 @@ const updateMessageHandler = async (io, { messageId, username, newContent }) => 
 };
 
 // Delete message handler
-const deleteMessageHandler = async (io, { messageId, username, isAdmin }) => {
-    try {
-        const { messageId, username, isAdmin } = req.body;
-    
-        // Find the message by ID
-        const message = await Message.findById(messageId);
-    
-        if (!message) {
-          return res.status(404).json({ error: "Message not found." });
-        }
-    
-        // Check if the user is the sender or an admin
-        if (message.username !== username && !isAdmin) {
-          return res
-            .status(403)
-            .json({ error: "You are not authorized to delete this message." });
-        }
-    
-        // Check if the message was sent less than 10 minutes ago
-        const now = new Date();
-        const tenMinutesAgo = new Date(now - 10 * 60 * 1000); // 10 minutes in milliseconds
-        if (message.timestamp < tenMinutesAgo) {
-          return res.status(400).json({
-            error: "You can only delete messages sent within the last 10 minutes.",
-          });
-        }
-    
-        // Perform the delete
-        await message.deleteOne();
-    
-        return res
-          .status(200)
-          .json({ success: true, message: "Message deleted successfully." });
+const deleteMessageHandler = async (io, { messageId, username }, socket) => {
+  try {
+    const message = await Message.findById(messageId);
+
+    if (!message) {
+      return socket.emit("error", { message: "Message not found" });
+    }
+
+    // Check if the message can be deleted (e.g., within 10 minutes of sending)
+    const timeDifference = new Date() - new Date(message.timestamp);
+    if (timeDifference > 10 * 60 * 1000) {
+      return socket.emit("error", { message: "Cannot delete a message after 10 minutes." });
+    }
+
+    // Check if the user is allowed to delete the message
+    if (message.username !== username) {
+      return socket.emit("error", { message: "You are not authorized to delete this message." });
+    }
+
+    // Delete the message
+    await Message.findByIdAndDelete(messageId);
+
+    // Notify the room about the deleted message
+    io.to(message.room).emit("messageDeleted", messageId);
   } catch (error) {
-    console.error('Error deleting message:', error);
+    console.error("Error deleting message:", error);
+    socket.emit("error", { message: "Error deleting message", error });
   }
 };
 

@@ -24,9 +24,18 @@ const { sendNotification } = require("./controllers/notificationController.js");
 const app = express();
 
 // Use CORS middleware with appropriate options
+
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "http://localhost:5173");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE");
+  res.header("Access-Control-Allow-Headers", "Content-Type");
+  next();
+});
+
 app.use(cors({
   origin: 'http://localhost:5173',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  credentials: true,
 }));
 
 app.use(express.json());
@@ -88,9 +97,10 @@ io.on('connection', (socket) => {
         if (recipient && recipient !== data.username && !notifiedUsernames.has(recipient)) {
           const notification = await sendNotification(
             recipient,
-            `${data.username} sent a new message.`,
+            `${data.username} sent a new message in room no : ${data.room}.`,
             "new_message",
-            savedMessage._id // Pass the message id for reference
+            savedMessage._id, // Pass the message id for reference
+            data.room
           );
           s.emit("notification", notification);
           notifiedUsernames.add(recipient);

@@ -1,12 +1,14 @@
 // backend/controllers/notificationController.js
 const Notification = require("../models/notificationModel.js");
 
-const sendNotification = async (recipientUsername, message, type = "other", messageId = null) => {
+const sendNotification = async (recipientUsername, message, type = "other", messageId = null,room) => {
     try {
+      console.log(room,'aaaaaaaaaa');
       // Check if a similar notification already exists for this user
       const existing = await Notification.findOne({
         username: recipientUsername,
         type,
+        room,
         messageId,
       });
   
@@ -20,6 +22,7 @@ const sendNotification = async (recipientUsername, message, type = "other", mess
         username: recipientUsername,
         message,
         type,
+        room,
         readStatus: false,
         timestamp: Date.now(),
         messageId, // You can pass null if not applicable
@@ -36,10 +39,10 @@ const sendNotification = async (recipientUsername, message, type = "other", mess
 const getUserNotifications = async (req, res) => {
   try {
     const { username } = req.params;
-    const notifications = await Notification.find({ username }).sort({ timestamp: -1 });
-    if (!notifications || notifications.length === 0) {
-      return res.status(404).json({ message: "No notifications found for this user." });
-    }
+    const notifications = await Notification.find({ username }).sort({ timestamp: -1 }) || [];
+    // if (!notifications || notifications.length === 0) {
+    //   return res.status(404).json({ message: "No notifications found for this user." });
+    // }
     res.status(200).json(notifications);
   } catch (error) {
     console.error("Error fetching notifications:", error);
