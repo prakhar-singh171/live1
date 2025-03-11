@@ -109,6 +109,11 @@ export default function ChatPage({
     socket.emit("deleteMessage", { messageId, username, isAdmin: username === "admin" });
   };
 
+  const isWithinTimeLimit = (timestamp) => {
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+    return new Date(timestamp) > tenMinutesAgo;
+  };
+
   return (
     <div className="flex h-screen bg-gray-100">
       {/* Filler to take up remaining space on the left */}
@@ -133,7 +138,8 @@ export default function ChatPage({
               const canEdit =
                 isAuthor &&
                 new Date() - new Date(msg.timestamp) <= 10 * 60 * 1000; // 10-minute edit window
-              const canDelete = isAuthor || username === "admin";
+              const canDelete =  isAuthor && isWithinTimeLimit(msg.timestamp);
+              ;
   
               return (
                 <div
