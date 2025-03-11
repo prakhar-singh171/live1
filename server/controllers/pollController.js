@@ -28,6 +28,8 @@ exports.createPoll = async (io, data) => {
 
     // Emit updated polls to the room
     io.to(room).emit("polls", polls);
+
+    return poll;
     
     console.log(`Emitted updated polls to room ${room}:`, polls);
 

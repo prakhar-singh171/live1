@@ -1,19 +1,19 @@
-const express = require('express');
-const cors = require('cors'); // Import CORS
-const http = require('http');
-const { Server } = require('socket.io');
-const mongoose = require('mongoose');
+const express = require("express");
+const cors = require("cors");
+const http = require("http");
+const { Server } = require("socket.io");
+const mongoose = require("mongoose");
 const path = require("path");
-const Notification =require("./models/notificationModel.js")
-require('dotenv').config();
+require("dotenv").config();
 
+const Notification = require("./models/notificationModel.js");
 const {
   joinRoomHandler,
   sendMessageHandler,
   updateMessageHandler,
   deleteMessageHandler,
   markMessagesSeenHandler,
-} = require('./controllers/chatController');
+} = require("./controllers/chatController");
 const {
   createPoll,
   getPollsForRoom,
@@ -23,28 +23,28 @@ const { sendNotification } = require("./controllers/notificationController.js");
 
 const app = express();
 
-// Use CORS middleware with appropriate options
-
+// CORS configuration
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Origin", "http://localhost:5173");
   res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE");
   res.header("Access-Control-Allow-Headers", "Content-Type");
   next();
 });
-
-app.use(cors({
-  origin: 'http://localhost:5173',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  credentials: true,
-}));
+app.use(
+  cors({
+    origin: "http://localhost:5173",
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    credentials: true,
+  })
+);
 
 app.use(express.json());
 
-// Mount API routes (notifications routes) BEFORE static files
+// Notification routes
 const notificationRoutes = require("./routes/notificationRoutes.js");
 app.use("/api/notifications", notificationRoutes);
 
-// Serve static files from client/build
+// Serve static files
 app.use(express.static(path.join(__dirname, "client/build")));
 app.get("*", (req, res) => {
   res.sendFile(path.resolve(__dirname, "client/build", "index.html"));
@@ -53,8 +53,8 @@ app.get("*", (req, res) => {
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: 'http://localhost:5173',
-    methods: ['GET', 'POST'],
+    origin: "http://localhost:5173",
+    methods: ["GET", "POST"],
   },
 });
 
@@ -63,76 +63,109 @@ mongoose.connect(process.env.MONGO_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 });
-mongoose.connection.on('connected', () => {
-  console.log('Connected to MongoDB successfully.');
+mongoose.connection.on("connected", () => {
+  console.log("Connected to MongoDB successfully.");
 });
-mongoose.connection.on('error', (err) => {
-  console.error('Error connecting to MongoDB:', err);
+mongoose.connection.on("error", (err) => {
+  console.error("Error connecting to MongoDB:", err);
 });
+
+// Helper function to notify users in a room
+const notifyUsersInRoom = async (io, room, senderUsername, message, type, messageId = null) => {
+  try {
+    const socketsInRoom = await io.in(room).fetchSockets();
+    const notifiedUsernames = new Set();
+
+    for (const socket of socketsInRoom) {
+      const recipient = socket.data.username;
+
+      if (recipient && recipient !== senderUsername && !notifiedUsernames.has(recipient)) {
+        const notification = await sendNotification(
+          recipient,
+          message,
+          type,
+          messageId,
+          room
+        );
+        socket.emit("notification", notification);
+        notifiedUsernames.add(recipient);
+      }
+    }
+  } catch (error) {
+    console.error("Error notifying users in room:", error);
+  }
+};
 
 // Socket.IO events
-io.on('connection', (socket) => {
-  console.log('A user connected');
+io.on("connection", (socket) => {
+  console.log("A user connected");
 
-  socket.on('joinRoom', (data) => joinRoomHandler(socket, data));
+  // Join room
+  socket.on("joinRoom", (data) => joinRoomHandler(socket, data));
+
+  // Send message
   socket.on("sendMessage", async (data) => {
-    // Data contains { room, username, message }
-    const savedMessage = await sendMessageHandler(io, data); // Ensure this returns the saved message with _id
+    const savedMessage = await sendMessageHandler(io, data);
     if (!savedMessage || !savedMessage._id) {
       console.error("sendMessageHandler did not return a valid message:", savedMessage);
       return;
     }
-  
+
     try {
-      // Get all socket connections in the room
-      const socketsInRoom = await io.in(data.room).fetchSockets();
-      const notifiedUsernames = new Set();
-  
-      for (const s of socketsInRoom) {
-        const recipient = s.data.username; // Ensure this is set when the user joins
-        // Only send a notification if:
-        // - The recipient is defined
-        // - The recipient is not the sender
-        // - We haven't already notified that recipient
-        if (recipient && recipient !== data.username && !notifiedUsernames.has(recipient)) {
-          const notification = await sendNotification(
-            recipient,
-            `${data.username} sent a new message in room no : ${data.room}.`,
-            "new_message",
-            savedMessage._id, // Pass the message id for reference
-            data.room
-          );
-          s.emit("notification", notification);
-          notifiedUsernames.add(recipient);
-        }
-      }
+      const messageNotification = `${data.username} sent a new message in room no: ${data.room}.`;
+      await notifyUsersInRoom(io, data.room, data.username, messageNotification, "new_message", savedMessage._id);
     } catch (error) {
       console.error("Notification error:", error);
     }
   });
 
-  socket.on('updateMessage', (data) => updateMessageHandler(io, data));
-  socket.on('deleteMessage', (data) => deleteMessageHandler(io, data));
-  socket.on('mark_seen', (data) => markMessagesSeenHandler(socket, data, io));
-  
-  socket.on("createPoll", (data) => {
+  // Update message
+  socket.on("updateMessage", (data) => updateMessageHandler(io, data));
+
+  // Delete message
+  socket.on("deleteMessage", (data) => deleteMessageHandler(io, data));
+
+  // Mark messages as seen
+  socket.on("mark_seen", (data) => markMessagesSeenHandler(socket, data, io));
+
+  // Create poll
+  socket.on("createPoll", async (data) => {
     if (!io) {
       console.error("Socket.IO (io) instance is undefined.");
       return;
     }
-    console.log("Received createPoll request:", data);
-    createPoll(io, data);
+
+    try {
+      const newPoll = await createPoll(io, data);
+
+      if (!newPoll) {
+        console.error("createPoll did not return a valid poll:", newPoll);
+        return;
+      }
+
+      const pollNotification = `${data.username} created a new poll in room no: ${data.room}.`;
+      await notifyUsersInRoom(io, data.room, data.username, pollNotification, "new_poll");
+
+      io.to(data.room).emit("pollCreated", newPoll);
+    } catch (error) {
+      console.error("Error creating poll and sending notifications:", error);
+    }
   });
+
+  // Fetch polls
   socket.on("getPolls", (data) => {
     console.log("Fetching polls for room:", data.room);
     getPollsForRoom(socket, data);
   });
+
+  // Vote on poll
   socket.on("votePoll", (data) => {
     console.log("Processing vote for poll:", data);
     votePoll(io, data);
   });
-  socket.on('disconnect', () => {
-    console.log('A user disconnected');
+
+  socket.on("disconnect", () => {
+    console.log("A user disconnected");
   });
 });
 

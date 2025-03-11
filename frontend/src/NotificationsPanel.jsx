@@ -6,40 +6,42 @@ import "react-toastify/dist/ReactToastify.css";
 export default function NotificationsPanel({ username, socket }) {
   const [notifications, setNotifications] = useState([]);
 
-  // Fetch all notifications for the user from the backend
+  // Fetch notifications from REST API on mount
   useEffect(() => {
     if (!username) return;
-
     const fetchNotifications = async () => {
       try {
-        console.log(username);
         const response = await axios.get(`http://localhost:3000/api/notifications/${username}`);
-        setNotifications(response.data);
-        console.log("Fetched notifications:", response.data);
+        // Filter out duplicate notifications
+        const uniqueNotifications = Array.from(
+          new Map(response.data.map((notif) => [notif._id, notif])).values()
+        );
+        setNotifications(uniqueNotifications);
+        console.log("Fetched notifications:", uniqueNotifications);
       } catch (error) {
         console.error("Error fetching notifications:", error);
       }
     };
-
     fetchNotifications();
   }, [username]);
 
-  // Listen for real-time notifications for all rooms
+  // Listen for real-time notifications
   useEffect(() => {
     if (!socket) return;
-
     const handleNotification = (notification) => {
       console.log("Received real-time notification:", notification);
       toast.info(notification.message, {
         position: "top-right",
         autoClose: 5000,
       });
-      setNotifications((prev) => [notification, ...prev]);
+      setNotifications((prev) => {
+        const updatedNotifications = [notification, ...prev];
+        // Ensure no duplicates exist
+        return Array.from(new Map(updatedNotifications.map((notif) => [notif._id, notif])).values());
+      });
     };
 
-    // Listen to the `notification` event for all rooms
     socket.on("notification", handleNotification);
-
     return () => {
       socket.off("notification", handleNotification);
     };
@@ -53,7 +55,7 @@ export default function NotificationsPanel({ username, socket }) {
       );
       toast.success("Notification marked as read", { autoClose: 3000 });
     } catch (error) {
-      console.error("Error marking notification as read:", error);
+      console.error("Error marking notification as read:", error.response?.data || error.message);
       toast.error("Error marking notification as read", { autoClose: 3000 });
     }
   };
@@ -64,7 +66,7 @@ export default function NotificationsPanel({ username, socket }) {
       setNotifications((prev) => prev.filter((notif) => notif._id !== id));
       toast.success("Notification deleted", { autoClose: 3000 });
     } catch (error) {
-      console.error("Error deleting notification:", error);
+      console.error("Error deleting notification:", error.response?.data || error.message);
       toast.error("Error deleting notification", { autoClose: 3000 });
     }
   };
@@ -75,7 +77,7 @@ export default function NotificationsPanel({ username, socket }) {
       setNotifications([]);
       toast.success("All notifications deleted", { autoClose: 3000 });
     } catch (error) {
-      console.error("Error deleting all notifications:", error);
+      console.error("Error deleting all notifications:", error.response?.data || error.message);
       toast.error("Error deleting all notifications", { autoClose: 3000 });
     }
   };
@@ -100,13 +102,9 @@ export default function NotificationsPanel({ username, socket }) {
           <div key={notif._id} className="border p-4 rounded mb-2">
             <p className="text-sm">{notif.message}</p>
             <p className="text-xs text-gray-500">
-              Room: <strong>{notif.room}</strong> |{" "}
-              {new Date(notif.timestamp).toLocaleString("en-US", {
+              {new Date(notif.timestamp).toLocaleTimeString([], {
                 hour: "2-digit",
                 minute: "2-digit",
-                day: "numeric",
-                month: "short",
-                year: "numeric",
               })}
             </p>
             <div className="mt-2 flex gap-2">
