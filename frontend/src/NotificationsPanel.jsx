@@ -1,18 +1,20 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 export default function NotificationsPanel({ username, socket }) {
   const [notifications, setNotifications] = useState([]);
+  const [audioEnabled, setAudioEnabled] = useState(false); // Start with audio disabled
+  const audioRef = useRef(null);
 
   // Fetch notifications from REST API on mount
   useEffect(() => {
     if (!username) return;
+
     const fetchNotifications = async () => {
       try {
         const response = await axios.get(`http://localhost:3000/api/notifications/${username}`);
-        // Filter out duplicate notifications
         const uniqueNotifications = Array.from(
           new Map(response.data.map((notif) => [notif._id, notif])).values()
         );
@@ -22,21 +24,31 @@ export default function NotificationsPanel({ username, socket }) {
         console.error("Error fetching notifications:", error);
       }
     };
+
     fetchNotifications();
   }, [username]);
 
   // Listen for real-time notifications
   useEffect(() => {
     if (!socket) return;
+
     const handleNotification = (notification) => {
       console.log("Received real-time notification:", notification);
+
+      // Play notification sound only if audio is enabled and after user interaction
+      if (audioEnabled && audioRef.current) {
+        audioRef.current.play().catch((error) => {
+          console.error("Error playing notification sound:", error);
+        });
+      }
+
       toast.info(notification.message, {
         position: "top-right",
         autoClose: 5000,
       });
+
       setNotifications((prev) => {
         const updatedNotifications = [notification, ...prev];
-        // Ensure no duplicates exist
         return Array.from(new Map(updatedNotifications.map((notif) => [notif._id, notif])).values());
       });
     };
@@ -45,7 +57,34 @@ export default function NotificationsPanel({ username, socket }) {
     return () => {
       socket.off("notification", handleNotification);
     };
-  }, [socket]);
+  }, [socket, audioEnabled]);
+
+  // Global click listener to enable audio on first interaction
+  useEffect(() => {
+    const enableAudio = () => {
+      setAudioEnabled(true); // Enable audio after first user interaction
+      console.log("Audio enabled");
+      document.removeEventListener("click", enableAudio); // Remove event listener after the first click
+    };
+
+    document.addEventListener("click", enableAudio); // Add event listener for user interaction
+    return () => {
+      document.removeEventListener("click", enableAudio); // Cleanup on unmount
+    };
+  }, []);
+
+  // Audio load and error checking
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.addEventListener("canplaythrough", () => {
+        console.log("Audio file is ready to play");
+      });
+
+      audioRef.current.addEventListener("error", () => {
+        console.error("Error loading the audio file.");
+      });
+    }
+  }, []);
 
   const handleMarkAsRead = async (id) => {
     try {
@@ -84,6 +123,9 @@ export default function NotificationsPanel({ username, socket }) {
 
   return (
     <div className="p-4 max-w-md mx-auto bg-gray-50 rounded shadow my-4">
+      {/* Audio element for notification sound */}
+      <audio ref={audioRef} src="/sounds/notification.wav" preload="auto" />
+
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-2xl font-bold">Your Notifications</h2>
         {notifications.length > 0 && (
@@ -95,6 +137,7 @@ export default function NotificationsPanel({ username, socket }) {
           </button>
         )}
       </div>
+
       {notifications.length === 0 ? (
         <p className="text-gray-500">No notifications available.</p>
       ) : (
@@ -102,9 +145,13 @@ export default function NotificationsPanel({ username, socket }) {
           <div key={notif._id} className="border p-4 rounded mb-2">
             <p className="text-sm">{notif.message}</p>
             <p className="text-xs text-gray-500">
-              {new Date(notif.timestamp).toLocaleTimeString([], {
+              {new Date(notif.timestamp).toLocaleString("en-US", {
                 hour: "2-digit",
                 minute: "2-digit",
+                hour12: true,
+                month: "short",
+                day: "2-digit",
+                year: "numeric",
               })}
             </p>
             <div className="mt-2 flex gap-2">
