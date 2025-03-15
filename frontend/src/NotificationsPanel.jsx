@@ -35,7 +35,7 @@ export default function NotificationsPanel({ username, socket }) {
     const handleNotification = (notification) => {
       console.log("Received real-time notification:", notification);
 
-      // Play notification sound only if audio is enabled and after user interaction
+      // Play notification sound only if audio is enabled
       if (audioEnabled && audioRef.current) {
         audioRef.current.play().catch((error) => {
           console.error("Error playing notification sound:", error);
@@ -54,8 +54,19 @@ export default function NotificationsPanel({ username, socket }) {
     };
 
     socket.on("notification", handleNotification);
+
+    // Listen for play sound event (triggered by the server)
+    socket.on("playNotificationSound", () => {
+      if (audioEnabled && audioRef.current) {
+        audioRef.current.play().catch((error) => {
+          console.error("Error playing notification sound:", error);
+        });
+      }
+    });
+
     return () => {
       socket.off("notification", handleNotification);
+      socket.off("playNotificationSound"); // Cleanup
     };
   }, [socket, audioEnabled]);
 

@@ -70,7 +70,7 @@ mongoose.connection.on("error", (err) => {
   console.error("Error connecting to MongoDB:", err);
 });
 
-// Helper function to notify users in a room
+// Helper function to notify users in a room and emit sound event
 const notifyUsersInRoom = async (io, room, senderUsername, message, type, messageId = null) => {
   try {
     const socketsInRoom = await io.in(room).fetchSockets();
@@ -88,6 +88,9 @@ const notifyUsersInRoom = async (io, room, senderUsername, message, type, messag
           room
         );
         socket.emit("notification", notification);
+        // Emit the "playNotificationSound" event to play the sound on each connected tab
+        socket.emit("playNotificationSound");
+
         notifiedUsernames.add(recipient);
       }
     }

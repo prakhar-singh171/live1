@@ -122,7 +122,7 @@ export default function ChatPage({
       {/* Chat container occupies 1/4th of the screen width and full height */}
       <div className="bg-white shadow-lg rounded-lg w-1/4 h-screen flex flex-col">
         <header className="bg-blue-600 text-white p-4 rounded-t-lg flex justify-between items-center">
-          <h1 className="text-lg font-bold">TalkSpace - Room: {room}</h1>
+          <h1 className="text-lg font-bold">LiveCodeHub - Room: {room}</h1>
           <button
             onClick={handleLeaveRoom}
             className="text-sm bg-red-500 py-1 px-3 rounded-md hover:bg-red-600"
