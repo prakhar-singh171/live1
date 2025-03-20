@@ -43,6 +43,7 @@ app.use(express.json());
 // Notification routes
 const notificationRoutes = require("./routes/notificationRoutes.js");
 const chatRoutes = require("./routes/chatRoutes.js");
+const { timeStamp } = require("console");
 
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/chat", chatRoutes);
@@ -80,6 +81,7 @@ const notifyUsersInRoom = async (io, room, senderUsername, message, type, messag
   try {
     const socketsInRoom = await io.in(room).fetchSockets();
     const notifiedUsernames = new Set();
+    const timestamp = new Date().toISOString();
 
     for (const socket of socketsInRoom) {
       const recipient = socket.data.username;
@@ -91,6 +93,7 @@ const notifyUsersInRoom = async (io, room, senderUsername, message, type, messag
           type,
           room,
           messageId,
+          timestamp,
         });
         socket.emit("playNotificationSound");
       }
@@ -105,6 +108,7 @@ const notifyUsersInRoom = async (io, room, senderUsername, message, type, messag
         type,
         room,
         messageId,
+        timestamp
       });
     }
   } catch (error) {
