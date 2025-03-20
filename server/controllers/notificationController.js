@@ -1,48 +1,55 @@
-// backend/controllers/notificationController.js
 const Notification = require("../models/notificationModel.js");
 
-const sendNotification = async (recipientUsername, message, type = "other", messageId = null,room) => {
-    try {
-      console.log(room,'aaaaaaaaaa');
-      // Check if a similar notification already exists for this user
-      const existing = await Notification.findOne({
-        username: recipientUsername,
-        type,
-        room,
-        messageId,
-      });
-  
-      if (existing) {
-        console.log(`Notification already exists for ${recipientUsername}`);
-        // Optionally update timestamp or readStatus if needed
-        return existing;
-      }
-  
-      const notification = new Notification({
-        username: recipientUsername,
-        message,
-        type,
-        room,
-        readStatus: false,
-        timestamp: Date.now(),
-        messageId, // You can pass null if not applicable
-      });
-      await notification.save();
-      console.log("Notification sent to user:", recipientUsername);
-      return notification;
-    } catch (error) {
-      console.error("Error sending notification:", error);
-      throw error;
-    }
-  };
+// Send notification to multiple users
+const sendNotification = async (recipientUsernames, message, type = "other", messageId = null, room) => {
+  try {
+    console.log(room, "Room for notification");
 
+    // Check if a similar notification already exists for the same type and room
+    const existing = await Notification.findOne({
+      type,
+      room,
+      messageId,
+    });
+
+    if (existing) {
+      // Merge new recipients into the existing notification's usernames array
+      const uniqueUsernames = Array.from(new Set([...existing.usernames, ...recipientUsernames]));
+      existing.usernames = uniqueUsernames;
+      await existing.save();
+
+      console.log(`Updated notification with new usernames for room ${room}`);
+      return existing;
+    }
+
+    // Create a new notification if no similar one exists
+    const notification = new Notification({
+      usernames: recipientUsernames,
+      message,
+      type,
+      room,
+      readStatus: false,
+      timestamp: Date.now(),
+      messageId,
+    });
+    await notification.save();
+
+    console.log("Notification sent to users:", recipientUsernames);
+    return notification;
+  } catch (error) {
+    console.error("Error sending notification:", error);
+    throw error;
+  }
+};
+
+// Get notifications for a specific user
 const getUserNotifications = async (req, res) => {
   try {
     const { username } = req.params;
-    const notifications = await Notification.find({ username }).sort({ timestamp: -1 }) || [];
-    // if (!notifications || notifications.length === 0) {
-    //   return res.status(404).json({ message: "No notifications found for this user." });
-    // }
+    const notifications = await Notification.find({ usernames: username })
+      .sort({ timestamp: -1 })
+      .exec();
+
     res.status(200).json(notifications);
   } catch (error) {
     console.error("Error fetching notifications:", error);
@@ -50,11 +57,13 @@ const getUserNotifications = async (req, res) => {
   }
 };
 
+// Mark notification as read
 const markNotificationAsRead = async (req, res) => {
   try {
     const { id } = req.params;
     const { readStatus } = req.body;
     const notification = await Notification.findByIdAndUpdate(id, { readStatus }, { new: true });
+
     if (!notification) {
       return res.status(404).json({ message: "Notification not found" });
     }
@@ -65,11 +74,13 @@ const markNotificationAsRead = async (req, res) => {
   }
 };
 
+// Delete a specific notification
 const deleteNotification = async (req, res) => {
   try {
-    const { notificationId } = req.params;
-    console.log("Deleting notification:", notificationId);
+    const {notificationId } = req.params;
+    console.log('dsfd')
     const deletedNotification = await Notification.findByIdAndDelete(notificationId);
+
     if (!deletedNotification) {
       return res.status(404).json({ message: "Notification not found." });
     }
@@ -80,14 +91,18 @@ const deleteNotification = async (req, res) => {
   }
 };
 
-// New controller: Delete all notifications for a specific user
+// Delete all notifications for a specific user
 const deleteAllNotificationsForUser = async (req, res) => {
   try {
     const { username } = req.params;
-    const result = await Notification.deleteMany({ username });
-    res.status(200).json({ message: "All notifications deleted successfully.", result });
+    const result = await Notification.updateMany(
+      { usernames: username },
+      { $pull: { usernames: username } }
+    );
+
+    res.status(200).json({ message: "All notifications for the user removed successfully.", result });
   } catch (error) {
-    console.error("Error deleting all notifications:", error);
+    console.error("Error deleting all notifications for user:", error);
     res.status(500).json({ message: "Error deleting all notifications", error });
   }
 };

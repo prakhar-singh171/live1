@@ -5,10 +5,10 @@ import "react-toastify/dist/ReactToastify.css";
 
 export default function NotificationsPanel({ username, socket }) {
   const [notifications, setNotifications] = useState([]);
-  const [audioEnabled, setAudioEnabled] = useState(false); // Start with audio disabled
+  const [audioEnabled, setAudioEnabled] = useState(false);
   const audioRef = useRef(null);
 
-  // Fetch notifications from REST API on mount
+  // Fetch notifications for the current user
   useEffect(() => {
     if (!username) return;
 
@@ -35,7 +35,6 @@ export default function NotificationsPanel({ username, socket }) {
     const handleNotification = (notification) => {
       console.log("Received real-time notification:", notification);
 
-      // Play notification sound only if audio is enabled
       if (audioEnabled && audioRef.current) {
         audioRef.current.play().catch((error) => {
           console.error("Error playing notification sound:", error);
@@ -55,7 +54,6 @@ export default function NotificationsPanel({ username, socket }) {
 
     socket.on("notification", handleNotification);
 
-    // Listen for play sound event (triggered by the server)
     socket.on("playNotificationSound", () => {
       if (audioEnabled && audioRef.current) {
         audioRef.current.play().catch((error) => {
@@ -66,35 +64,22 @@ export default function NotificationsPanel({ username, socket }) {
 
     return () => {
       socket.off("notification", handleNotification);
-      socket.off("playNotificationSound"); // Cleanup
+      socket.off("playNotificationSound");
     };
   }, [socket, audioEnabled]);
 
-  // Global click listener to enable audio on first interaction
+  // Enable audio on first user interaction
   useEffect(() => {
     const enableAudio = () => {
-      setAudioEnabled(true); // Enable audio after first user interaction
+      setAudioEnabled(true);
       console.log("Audio enabled");
-      document.removeEventListener("click", enableAudio); // Remove event listener after the first click
+      document.removeEventListener("click", enableAudio);
     };
 
-    document.addEventListener("click", enableAudio); // Add event listener for user interaction
+    document.addEventListener("click", enableAudio);
     return () => {
-      document.removeEventListener("click", enableAudio); // Cleanup on unmount
+      document.removeEventListener("click", enableAudio);
     };
-  }, []);
-
-  // Audio load and error checking
-  useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.addEventListener("canplaythrough", () => {
-        console.log("Audio file is ready to play");
-      });
-
-      audioRef.current.addEventListener("error", () => {
-        console.error("Error loading the audio file.");
-      });
-    }
   }, []);
 
   const handleMarkAsRead = async (id) => {
@@ -112,9 +97,11 @@ export default function NotificationsPanel({ username, socket }) {
 
   const handleDeleteNotification = async (id) => {
     try {
-      await axios.delete(`http://localhost:3000/api/notifications/${id}`);
-      setNotifications((prev) => prev.filter((notif) => notif._id !== id));
-      toast.success("Notification deleted", { autoClose: 3000 });
+      await axios.delete(`http://localhost:3000/api/notifications/removeUser/${id}`, {
+        username,
+      });
+      setNotifications((prev) => prev.filter((notif) => notif._id !== id || notif.usernames.length > 1));
+      toast.success("Notification deleted for the user", { autoClose: 3000 });
     } catch (error) {
       console.error("Error deleting notification:", error.response?.data || error.message);
       toast.error("Error deleting notification", { autoClose: 3000 });
@@ -125,7 +112,7 @@ export default function NotificationsPanel({ username, socket }) {
     try {
       await axios.delete(`http://localhost:3000/api/notifications/user/${username}`);
       setNotifications([]);
-      toast.success("All notifications deleted", { autoClose: 3000 });
+      toast.success("All notifications for the user deleted", { autoClose: 3000 });
     } catch (error) {
       console.error("Error deleting all notifications:", error.response?.data || error.message);
       toast.error("Error deleting all notifications", { autoClose: 3000 });

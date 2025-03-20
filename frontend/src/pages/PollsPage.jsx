@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { toast } from "react-toastify";
 
 export default function PollsPage({ room, username, onBackToChat, socket }) {
   const [polls, setPolls] = useState([]);
@@ -23,16 +24,29 @@ export default function PollsPage({ room, username, onBackToChat, socket }) {
       setPolls(sortedPolls);
     };
 
+    const handleReceiveError = (error) => {
+      console.error('Error received:', error);
+      toast.error(`Error: ${error.message || 'An unknown error occurred.'}`);
+    };
+
+
+
     socket.on("polls", handlePolls);
 
     return () => {
       console.log("Cleaning up 'polls' listener.");
       socket.off("polls", handlePolls);
+      socket.off('error', handleReceiveError);
     };
   }, [room, socket]);
 
   const handleCreatePoll = () => {
+    let x=0;
+    const validOptions = pollOptions.filter((opt) => opt.trim()); // Only keep non-empty options
+    console.log(validOptions);
+
     if (pollQuestion.trim() && pollOptions.every((opt) => opt.trim())) {
+     
       socket.emit("createPoll", {
         room,
         username,
@@ -43,7 +57,11 @@ export default function PollsPage({ room, username, onBackToChat, socket }) {
       setPollOptions(["", ""]);
       setIsCreatingPoll(false);
     }
+    else{
+      toast.error('please provide at least 2 valid options');
+    }
   };
+ 
 
   const handleVote = (pollId, optionIndex) => {
     socket.emit("votePoll", { pollId, username, optionIndex,room });

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
+import { toast } from "react-toastify";
 
 export default function ChatPage({
   socket,
@@ -41,11 +42,17 @@ export default function ChatPage({
       setMessages(updatedMessages);
     };
 
+    const handleReceiveError = (error) => {
+      console.error('Error received:', error);
+      toast.error(`Error: ${error.message || 'An unknown error occurred.'}`);
+    };
+
     socket.on("message", handleReceiveMessage);
     socket.on("messageHistory", handleChatHistory);
     socket.on("messageUpdated", handleMessageUpdated);
     socket.on("messageDeleted", handleMessageDeleted);
     socket.on("messageSeenUpdate", handleMessageSeenUpdate);
+    socket.on('error', handleReceiveError);
 
     return () => {
       socket.off("message", handleReceiveMessage);
@@ -53,6 +60,7 @@ export default function ChatPage({
       socket.off("messageUpdated", handleMessageUpdated);
       socket.off("messageDeleted", handleMessageDeleted);
       socket.off("messageSeenUpdate", handleMessageSeenUpdate);
+      socket.off('error', handleReceiveError); 
     };
   }, [socket]);
 
@@ -195,19 +203,32 @@ export default function ChatPage({
                     <>
                       <p className="text-sm font-medium">{msg.message}</p>
                       {msg.file && (
-                        <a
-                          href={msg.file}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-500 underline text-sm"
-                        >
-                          📎 View File
-                        </a>
-                      )}
+                            <div className="flex items-center gap-2">
+                              <img
+                                src="/images/file-icon.png" // Adjust the path to match your project structure
+                                alt="File Icon"
+                                className="w-6 h-6" // Set appropriate dimensions
+                              />
+                              <a
+                                href={msg.file}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-500 underline text-sm"
+                              >
+                                View File
+                              </a>
+                            </div>
+                          )}
                       <div className="text-xs text-gray-500 mt-1">
                         Sent by <strong>{msg.username}</strong> at{" "}
                         {new Date(msg.timestamp).toLocaleString()}
                       </div>
+                      <div className="text-xs text-gray-400 mt-1">
+                              Seen by:{" "}
+                              {msg.seenBy && msg.seenBy.length > 0
+                                ? msg.seenBy.join(", ")
+                                : "No one"}
+                            </div>
                       <div className="flex justify-end gap-2 mt-2">
                         {canEdit && (
                           <button

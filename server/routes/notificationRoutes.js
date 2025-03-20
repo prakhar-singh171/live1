@@ -8,10 +8,10 @@ const {
 } = require("../controllers/notificationController.js");
 
 const router = express.Router();
-
+console.log('dfdsf')
 router.get("/:username", getUserNotifications);
 router.put("/:id/read", markNotificationAsRead);
-router.delete("/:notificationId", deleteNotification);
+router.delete("/removeUser/:notificationId", deleteNotification);
 router.delete("/user/:username", deleteAllNotificationsForUser);
 
 module.exports = router;

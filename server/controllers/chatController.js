@@ -31,6 +31,8 @@ const sendMessageHandler = async (io, { username, room, message,fileUrl }) => {
     return savedMessage;
   } catch (error) {
     console.error('Error in sendMessageHandler:', error);
+    socket.emit('error', { message: 'error receving chat history of this room' });
+
   }
 };
 
@@ -64,6 +66,8 @@ const updateMessageHandler = async (io, { messageId, username, newContent }) => 
     });
   } catch (error) {
     console.error('Error updating message:', error);
+    socket.emit('error', { message: 'Error updating message:' });
+
   }
 };
 
@@ -158,7 +162,7 @@ const markMessageAsSeen = async (socket, { messageId, username }) => {
       res.status(200).json({ fileUrl: uploadedFile.secure_url });
     } catch (error) {
       console.error("File upload error:", error);
-      res.status(500).json({ error: "File upload failed." });
+      socket.emit('error', { message: 'File upload error:' });
     }
   };
 

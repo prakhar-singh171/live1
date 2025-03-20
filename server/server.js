@@ -75,6 +75,7 @@ mongoose.connection.on("error", (err) => {
 });
 
 // Helper function to notify users in a room and emit sound event
+// Helper function to notify users in a room and emit sound event
 const notifyUsersInRoom = async (io, room, senderUsername, message, type, messageId = null) => {
   try {
     const socketsInRoom = await io.in(room).fetchSockets();
@@ -84,19 +85,27 @@ const notifyUsersInRoom = async (io, room, senderUsername, message, type, messag
       const recipient = socket.data.username;
 
       if (recipient && recipient !== senderUsername && !notifiedUsernames.has(recipient)) {
-        const notification = await sendNotification(
-          recipient,
+        notifiedUsernames.add(recipient); // Add recipient to the Set
+        socket.emit("notification", {
           message,
           type,
+          room,
           messageId,
-          room
-        );
-        socket.emit("notification", notification);
-        // Emit the "playNotificationSound" event to play the sound on each connected tab
+        });
         socket.emit("playNotificationSound");
-
-        notifiedUsernames.add(recipient);
       }
+    }
+
+    // Store the notification with all notified usernames
+    if (notifiedUsernames.size > 0) {
+      const usernamesArray = Array.from(notifiedUsernames);
+      await Notification.create({
+        usernames: usernamesArray,
+        message,
+        type,
+        room,
+        messageId,
+      });
     }
   } catch (error) {
     console.error("Error notifying users in room:", error);
@@ -114,6 +123,12 @@ io.on("connection", (socket) => {
   socket.on("sendMessage", async (data) => {
     console.log(data);
 
+    if(!data.message && !data.fileUrl) {
+      socket.emit('error', { message: "nothing to send .please write something:" });
+      return;
+
+    }
+
     const savedMessage = await sendMessageHandler(io, data);
     if (!savedMessage || !savedMessage._id) {
       console.error("sendMessageHandler did not return a valid message:", savedMessage);
@@ -125,6 +140,7 @@ io.on("connection", (socket) => {
       await notifyUsersInRoom(io, data.room, data.username, messageNotification, "new_message", savedMessage._id);
     } catch (error) {
       console.error("Notification error:", error);
+      socket.emit('error', { message: "Notification error:" });
     }
   });
 
@@ -157,7 +173,7 @@ io.on("connection", (socket) => {
 
       io.to(data.room).emit("pollCreated", newPoll);
     } catch (error) {
-      console.error("Error creating poll and sending notifications:", error);
+      socket.emit('error', { message: 'Error creating poll and sending notifications:' });
     }
   });
 

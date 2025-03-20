@@ -9,6 +9,7 @@ exports.createPoll = async (io, data) => {
     // Validate data
     if (!room || !username || !question || !options || options.length < 2) {
       console.error("Invalid poll creation data:", data);
+
       return;
     }
 
@@ -90,5 +91,7 @@ exports.votePoll = async (io, data) => {
     console.log(room,updatedPolls,'aaaaa');
   } catch (error) {
     console.error("Error handling vote:", error);
+    socket.emit('error', { message: 'error in voting ' });
+
   }
 };
