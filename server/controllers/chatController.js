@@ -1,4 +1,5 @@
 const Message = require('../models/Message'); // Import Message model
+const cloudinary = require('../config/cloudinary');
 
 // Join room handler
 const joinRoomHandler = async (socket, { username, room }) => {
@@ -10,7 +11,7 @@ const joinRoomHandler = async (socket, { username, room }) => {
 
     // Send chat history
     const messageHistory = await Message.find({ room });
-    console.log(messageHistory);
+   // console.log(messageHistory);
     socket.emit('messageHistory', { messageHistory });
   } catch (error) {
     console.error('Error in joinRoomHandler:', error);
@@ -18,15 +19,30 @@ const joinRoomHandler = async (socket, { username, room }) => {
 };
 
 // Send message handler
-const sendMessageHandler = async (io, { username, room, message }) => {
+const sendMessageHandler = async (io, { username, room, message, file }) => {
   try {
-    const newMessage = new Message({ username, room, message });
+    let fileUrl = null;
+
+
+    if (file) {
+      
+        const uploadedFile = await cloudinary.uploader.upload(file, {
+          resource_type: "auto", 
+        });
+        fileUrl = uploadedFile.secure_url; 
+        console.log("File uploaded successfully:", fileUrl);
+     
+    }
+
+    const newMessage = new Message({ username, room, message,file:fileUrl });
     const savedMessage=await newMessage.save();
 
     io.to(room).emit('message', newMessage);
     return savedMessage;
+    console.log("Message sent:", { username, message, fileUrl });
   } catch (error) {
-    console.error('Error in sendMessageHandler:', error);
+    console.error("Error in sendMessageHandler:", error);
+    io.to(room).emit("error", { message: error.message });
   }
 };
 

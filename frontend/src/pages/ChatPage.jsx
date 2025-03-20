@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import axios from "axios";
 
 export default function ChatPage({
   socket,
@@ -8,29 +9,23 @@ export default function ChatPage({
   handleNavigateToPolls,
 }) {
   const [message, setMessage] = useState("");
+  const [file, setFile] = useState(null);
   const [messages, setMessages] = useState([]);
   const [editingMessageId, setEditingMessageId] = useState(null);
   const [editText, setEditText] = useState("");
   const chatEndRef = useRef(null);
 
-
   // Set up Socket.IO listeners
   useEffect(() => {
-    // Listener for new individual messages
     const handleReceiveMessage = (newMessage) => {
-      console.log("New message received:", newMessage);
       setMessages((prev) => [...prev, newMessage]);
     };
 
-    // Listener for full chat history (e.g., on join)
     const handleChatHistory = (history) => {
-      console.log("Received chat history:", history.messageHistory || []);
       setMessages(history.messageHistory);
     };
 
-    // Listener for message updates (editing)
     const handleMessageUpdated = ({ messageId, newMessage }) => {
-      console.log("Message updated:", messageId, newMessage);
       setMessages((prev) =>
         prev.map((msg) =>
           msg._id === messageId ? { ...msg, message: newMessage } : msg
@@ -38,15 +33,11 @@ export default function ChatPage({
       );
     };
 
-    // Listener for message deletions
     const handleMessageDeleted = (messageId) => {
-      console.log("Message deleted:", messageId);
       setMessages((prev) => prev.filter((msg) => msg._id !== messageId));
     };
 
-    // Listener for seen status updates
     const handleMessageSeenUpdate = (updatedMessages) => {
-      console.log("Message seen update:", updatedMessages);
       setMessages(updatedMessages);
     };
 
@@ -72,20 +63,37 @@ export default function ChatPage({
   }, [messages]);
 
   useEffect(() => {
-    // Re-emit joinRoom to fetch chat history when ChatPage mounts
     socket.emit("joinRoom", { username, room });
   }, [socket, username, room]);
-  
 
-  // Send a new message
-  const handleSendMessage = () => {
-    if (message.trim()) {
+  const handleSendMessage = async () => {
+    if (!message.trim() && !file) return;
+  
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const fileContent = reader.result; // Convert file to Base64
+        console.log("Base64 file content:", fileContent); // Verify file content
+  
+        socket.emit("sendMessage", {
+          room,
+          username,
+          message,
+          file: fileContent, // Send file as Base64
+        });
+  
+        setMessage("");
+        setFile(null);
+      };
+  
+      reader.readAsDataURL(file); // Convert file to Base64 string
+    } else {
       socket.emit("sendMessage", { room, username, message });
       setMessage("");
     }
   };
-
-  // Edit functionality
+  
+  
   const handleEditMessage = (msg) => {
     setEditingMessageId(msg._id);
     setEditText(msg.message);
@@ -104,7 +112,6 @@ export default function ChatPage({
     setEditText("");
   };
 
-  // Delete functionality
   const handleDeleteMessage = (messageId) => {
     socket.emit("deleteMessage", { messageId, username, isAdmin: username === "admin" });
   };
@@ -116,10 +123,7 @@ export default function ChatPage({
 
   return (
     <div className="flex h-screen bg-gray-100">
-      {/* Filler to take up remaining space on the left */}
       <div className="flex-grow"></div>
-      
-      {/* Chat container occupies 1/4th of the screen width and full height */}
       <div className="bg-white shadow-lg rounded-lg w-1/4 h-screen flex flex-col">
         <header className="bg-blue-600 text-white p-4 rounded-t-lg flex justify-between items-center">
           <h1 className="text-lg font-bold">LiveCodeHub - Room: {room}</h1>
@@ -130,17 +134,16 @@ export default function ChatPage({
             Leave
           </button>
         </header>
-  
+
         <main className="flex-grow overflow-y-scroll p-4 bg-gray-50">
           <div className="flex flex-col gap-4">
             {messages.map((msg) => {
               const isAuthor = msg.username === username;
               const canEdit =
                 isAuthor &&
-                new Date() - new Date(msg.timestamp) <= 10 * 60 * 1000; // 10-minute edit window
-              const canDelete =  isAuthor && isWithinTimeLimit(msg.timestamp);
-              ;
-  
+                new Date() - new Date(msg.timestamp) <= 10 * 60 * 1000;
+              const canDelete = isAuthor && isWithinTimeLimit(msg.timestamp);
+
               return (
                 <div
                   key={msg._id}
@@ -175,15 +178,19 @@ export default function ChatPage({
                   ) : (
                     <>
                       <p className="text-sm font-medium">{msg.message}</p>
+                      {msg.file && (
+                        <a
+                          href={msg.file}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-500 underline text-sm"
+                        >
+                          📎 View File
+                        </a>
+                      )}
                       <div className="text-xs text-gray-500 mt-1">
                         Sent by <strong>{msg.username}</strong> at{" "}
                         {new Date(msg.timestamp).toLocaleString()}
-                      </div>
-                      <div className="text-xs text-gray-400 mt-1">
-                        Seen by:{" "}
-                        {msg.seenBy && msg.seenBy.length > 0
-                          ? msg.seenBy.join(", ")
-                          : "No one"}
                       </div>
                       <div className="flex justify-end gap-2 mt-2">
                         {canEdit && (
@@ -208,11 +215,10 @@ export default function ChatPage({
                 </div>
               );
             })}
-             <div ref={chatEndRef}></div>
-
+            <div ref={chatEndRef}></div>
           </div>
         </main>
-  
+
         <footer className="bg-white p-4 flex gap-2 rounded-b-lg">
           <input
             type="text"
@@ -220,6 +226,11 @@ export default function ChatPage({
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             className="flex-grow p-2 border rounded-md"
+          />
+          <input
+            type="file"
+            onChange={(e) => setFile(e.target.files[0])}
+            className="bg-gray-100 border rounded-md p-2"
           />
           <button
             onClick={handleSendMessage}
@@ -230,7 +241,6 @@ export default function ChatPage({
           <button
             onClick={handleNavigateToPolls}
             className="bg-purple-500 text-white py-2 px-4 rounded-md hover:bg-purple-600"
-            aria-label="Navigate to Polls Page"
           >
             Polls
           </button>
@@ -238,5 +248,4 @@ export default function ChatPage({
       </div>
     </div>
   );
-  
 }
