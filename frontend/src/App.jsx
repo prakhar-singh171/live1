@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { Routes, Route, useNavigate } from "react-router-dom";
-import ChatPage from "./ChatPage";
-import PollsPage from "./PollsPage";
-import NotificationsPanel from "./NotificationsPanel";
+import ChatPage from "./pages/ChatPage";
+import PollsPage from "./pages/PollsPage";
+import NotificationsPanel from "./pages/NotificationsPanel";
 import { io } from "socket.io-client";
 
 // Create a single socket instance
