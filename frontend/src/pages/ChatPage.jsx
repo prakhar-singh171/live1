@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
 
@@ -23,7 +23,9 @@ export default function ChatPage({
     };
 
     const handleChatHistory = (history) => {
-      setMessages(history.messageHistory);
+      const newMessages = history.messageHistory || [];
+      setMessages(history);
+    
     };
 
     const handleMessageUpdated = ({ messageId, newMessage }) => {
@@ -72,6 +74,7 @@ export default function ChatPage({
 
   useEffect(() => {
     socket.emit("joinRoom", { username, room });
+
   }, [socket, username, room]);
 
   const handleFileUpload = async () => {
@@ -145,6 +148,12 @@ export default function ChatPage({
     return new Date(timestamp) > tenMinutesAgo;
   };
 
+  const handleInputChange = useCallback((e) => {
+    setMessage(e.target.value);
+  }, []);
+
+  
+
   return (
     <div className="flex h-screen bg-gray-100">
       <div className="flex-grow"></div>
@@ -160,8 +169,8 @@ export default function ChatPage({
         </header>
 
         <main className="flex-grow overflow-y-scroll p-4 bg-gray-50">
-          <div className="flex flex-col gap-4">
-            {messages.map((msg) => {
+  {Array.isArray(messages) &&    <div className="flex flex-col gap-4">
+               {messages.map((msg) => {
               const isAuthor = msg.username === username;
               const canEdit =
                 isAuthor &&
@@ -253,7 +262,7 @@ export default function ChatPage({
               );
             })}
             <div ref={chatEndRef}></div>
-          </div>
+          </div>   }
         </main>
 
         <footer className="bg-white p-4 flex gap-2 rounded-b-lg">
@@ -261,7 +270,7 @@ export default function ChatPage({
             type="text"
             placeholder="Type a message..."
             value={message}
-            onChange={(e) => setMessage(e.target.value)}
+            onChange={handleInputChange}
             className="flex-grow p-2 border rounded-md"
           />
           <input

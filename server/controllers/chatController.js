@@ -15,6 +15,7 @@ const joinRoomHandler = async (socket, { username, room }) => {
     const messageHistory = await Message.find({ room });
    // console.log(messageHistory);
     socket.emit('messageHistory', { messageHistory });
+     console.log(messageHistory);
   } catch (error) {
     console.error('Error in joinRoomHandler:', error);
   }
@@ -140,7 +141,7 @@ const markMessageAsSeen = async (socket, { messageId, username }) => {
       const updatedChatHistory = await Message.find({ room }).sort({ _id: 1 });
   
       // Emit the updated chat history to all clients in the room
-      io.to(room).emit('chat_history', updatedChatHistory);
+      io.to(room).emit('messageHistory', updatedChatHistory);
     } catch (error) {
       console.error('Error marking messages as seen:', error);
       socket.emit('error', { message: 'Error marking messages as seen.' });
