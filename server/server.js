@@ -42,7 +42,11 @@ app.use(express.json());
 
 // Notification routes
 const notificationRoutes = require("./routes/notificationRoutes.js");
+const chatRoutes = require("./routes/chatRoutes.js");
+
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/chat", chatRoutes);
+
 
 // Serve static files
 app.use(express.static(path.join(__dirname, "client/build")));
@@ -108,6 +112,8 @@ io.on("connection", (socket) => {
 
   // Send message
   socket.on("sendMessage", async (data) => {
+    console.log(data);
+
     const savedMessage = await sendMessageHandler(io, data);
     if (!savedMessage || !savedMessage._id) {
       console.error("sendMessageHandler did not return a valid message:", savedMessage);

@@ -66,31 +66,47 @@ export default function ChatPage({
     socket.emit("joinRoom", { username, room });
   }, [socket, username, room]);
 
-  const handleSendMessage = async () => {
-    if (!message.trim() && !file) return;
-  
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const fileContent = reader.result; // Convert file to Base64
-        console.log("Base64 file content:", fileContent); // Verify file content
-  
-        socket.emit("sendMessage", {
-          room,
-          username,
-          message,
-          file: fileContent, // Send file as Base64
-        });
-  
-        setMessage("");
-        setFile(null);
-      };
-  
-      reader.readAsDataURL(file); // Convert file to Base64 string
-    } else {
-      socket.emit("sendMessage", { room, username, message });
-      setMessage("");
+  const handleFileUpload = async () => {
+    if (!file) return null;
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const response = await axios.post("http://localhost:3000/api/chat/uploadFile", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      return response.data.fileUrl || null;
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      return null;
     }
+  };
+
+  const handleSendMessage = async () => {
+    let fileUrl = null;
+
+    if (file) {
+      fileUrl = await handleFileUpload();
+      if (!fileUrl) {
+        console.error("File upload failed. Cannot send message.");
+        return;
+      }
+    }
+
+    // Send message via Socket.IO
+    socket.emit("sendMessage", {
+      room,
+      username,
+      message,
+      fileUrl,
+    });
+
+    setMessage("");
+    setFile(null);
   };
   
   

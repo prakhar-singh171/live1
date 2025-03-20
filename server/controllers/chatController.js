@@ -1,6 +1,8 @@
 const Message = require('../models/Message'); // Import Message model
 const cloudinary = require('../config/cloudinary');
-
+const upload = require('../config/multer');
+const path=require('path')
+const fs=require('fs')
 // Join room handler
 const joinRoomHandler = async (socket, { username, room }) => {
   try {
@@ -19,30 +21,16 @@ const joinRoomHandler = async (socket, { username, room }) => {
 };
 
 // Send message handler
-const sendMessageHandler = async (io, { username, room, message, file }) => {
+
+const sendMessageHandler = async (io, { username, room, message,fileUrl }) => {
   try {
-    let fileUrl = null;
-
-
-    if (file) {
-      
-        const uploadedFile = await cloudinary.uploader.upload(file, {
-          resource_type: "auto", 
-        });
-        fileUrl = uploadedFile.secure_url; 
-        console.log("File uploaded successfully:", fileUrl);
-     
-    }
-
     const newMessage = new Message({ username, room, message,file:fileUrl });
     const savedMessage=await newMessage.save();
 
     io.to(room).emit('message', newMessage);
     return savedMessage;
-    console.log("Message sent:", { username, message, fileUrl });
   } catch (error) {
-    console.error("Error in sendMessageHandler:", error);
-    io.to(room).emit("error", { message: error.message });
+    console.error('Error in sendMessageHandler:', error);
   }
 };
 
@@ -155,6 +143,25 @@ const markMessageAsSeen = async (socket, { messageId, username }) => {
     }
   };
 
+  const uploadFile=async (req, res) => {
+    try {
+      const tempFilePath = req.file.path;
+  
+      // Upload file to Cloudinary
+      const uploadedFile = await cloudinary.uploader.upload(tempFilePath, {
+        resource_type: "auto",
+      });
+  
+      // Delete the local file
+      fs.unlinkSync(tempFilePath);
+  
+      res.status(200).json({ fileUrl: uploadedFile.secure_url });
+    } catch (error) {
+      console.error("File upload error:", error);
+      res.status(500).json({ error: "File upload failed." });
+    }
+  };
+
 
 module.exports = {
   joinRoomHandler,
@@ -162,4 +169,5 @@ module.exports = {
   updateMessageHandler,
   deleteMessageHandler,
   markMessagesSeenHandler,
+  uploadFile
 };
